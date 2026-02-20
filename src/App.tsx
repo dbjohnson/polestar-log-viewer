@@ -22,7 +22,7 @@ function App() {
           <div className="flex justify-between items-center h-24">
             <div className="flex items-center">
               <div className="mr-5">
-                <img src="/polestar-logo.svg" alt="Polestar Logo" className="w-20 h-20" />
+                <img src={`${import.meta.env.BASE_URL}polestar-logo.svg`} alt="Polestar Logo" className="w-20 h-20" />
               </div>
               <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
                 Polestar Log Viewer
