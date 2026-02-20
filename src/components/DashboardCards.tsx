@@ -1,6 +1,5 @@
 import React from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db';
+import { useFilter } from '../contexts/FilterContext';
 import { Zap, Activity, Navigation, Leaf, Battery, PiggyBank } from 'lucide-react';
 import { useSettings } from '../contexts/SettingsContext';
 import { 
@@ -12,7 +11,7 @@ import {
 
 export const DashboardCards= () => {
   const { unitSystem, gasPrice, iceMileage, elecRate, batteryCapacity } = useSettings();
-  const trips = useLiveQuery(() => db.trips.toArray());
+  const { trips } = useFilter();
 
   if (!trips || trips.length === 0) {
     return null;

@@ -1,5 +1,3 @@
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db';
 import { parse, differenceInMinutes } from 'date-fns';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -7,6 +5,7 @@ import {
 } from 'recharts';
 import { calculateLinearRegression } from '../utils/math';
 import { useSettings } from '../contexts/SettingsContext';
+import { useFilter } from '../contexts/FilterContext';
 import { 
   formatDistance, getDistanceLabel, 
   formatEfficiency, getEfficiencyLabel,
@@ -16,7 +15,7 @@ import {
 
 export const Charts= () => {
   const { unitSystem } = useSettings();
-  const trips = useLiveQuery(() => db.trips.toArray());
+  const { trips } = useFilter();
 
   if (!trips || trips.length === 0) {
     return null;

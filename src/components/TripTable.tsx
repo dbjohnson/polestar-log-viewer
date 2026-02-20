@@ -1,7 +1,6 @@
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db';
 import { format, parse } from 'date-fns';
 import { useSettings } from '../contexts/SettingsContext';
+import { useFilter } from '../contexts/FilterContext';
 import { 
   formatDistance, getDistanceLabel, 
   formatEfficiency, getEfficiencyLabel,
@@ -11,7 +10,7 @@ import {
 
 export const TripTable= () => {
   const { unitSystem } = useSettings();
-  const trips = useLiveQuery(() => db.trips.toArray());
+  const { trips } = useFilter();
 
   if (!trips || trips.length === 0) {
     return null;

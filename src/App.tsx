@@ -3,8 +3,10 @@ import { Dropzone } from './components/Dropzone';
 import { DashboardCards } from './components/DashboardCards';
 import { Charts } from './components/Charts';
 import { TripTable } from './components/TripTable';
+import { FilterBar } from './components/FilterBar';
 import { SettingsModal } from './components/SettingsModal';
 import { SettingsProvider, useSettings } from './contexts/SettingsContext';
+import { FilterProvider } from './contexts/FilterContext';
 import { processMissingTemperatures } from './utils/weatherWorker';
 import { Github, Settings, Moon, Sun, Monitor } from 'lucide-react';
 
@@ -84,6 +86,7 @@ function AppContent() {
 
         {/* Dashboard Section */}
         <section>
+          <FilterBar />
           <DashboardCards />
           <Charts />
           <TripTable />
@@ -99,7 +102,9 @@ function AppContent() {
 function App() {
   return (
     <SettingsProvider>
-      <AppContent />
+      <FilterProvider>
+        <AppContent />
+      </FilterProvider>
     </SettingsProvider>
   );
 }
