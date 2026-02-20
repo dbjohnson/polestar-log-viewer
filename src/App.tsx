@@ -1,13 +1,16 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Dropzone } from './components/Dropzone';
 import { DashboardCards } from './components/DashboardCards';
 import { Charts } from './components/Charts';
 import { TripTable } from './components/TripTable';
+import { SettingsModal } from './components/SettingsModal';
+import { SettingsProvider } from './contexts/SettingsContext';
 import { processMissingTemperatures } from './utils/weatherWorker';
-import { Github } from 'lucide-react';
+import { Github, Settings } from 'lucide-react';
 
-function App() {
-  
+function AppContent() {
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
   // Attempt to fetch any missing temperatures on initial load
   useEffect(() => {
     processMissingTemperatures();
@@ -28,8 +31,15 @@ function App() {
                 Polestar Log Viewer
               </h1>
             </div>
-            <div>
-              <a href="https://github.com/polestar" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-gray-600 transition-colors">
+            <div className="flex items-center space-x-6">
+              <button 
+                onClick={() => setIsSettingsOpen(true)}
+                className="text-gray-400 hover:text-gray-900 transition-colors p-2 hover:bg-gray-100 rounded-full"
+                title="Settings"
+              >
+                <Settings className="w-5 h-5" />
+              </button>
+              <a href="https://github.com/dbjohnson/polestar-log-viewer" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-gray-900 transition-colors">
                 <Github className="w-5 h-5" />
               </a>
             </div>
@@ -67,7 +77,17 @@ function App() {
           <p>Your data stays on your device. All processing is done locally in your browser.</p>
         </div>
       </footer>
+
+      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
     </div>
+  );
+}
+
+function App() {
+  return (
+    <SettingsProvider>
+      <AppContent />
+    </SettingsProvider>
   );
 }
 

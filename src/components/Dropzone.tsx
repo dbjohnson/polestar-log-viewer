@@ -3,10 +3,12 @@ import { useDropzone } from 'react-dropzone';
 import { UploadCloud } from 'lucide-react';
 import { processCSVFile } from '../utils/parseCSV';
 import { processMissingTemperatures } from '../utils/weatherWorker';
+import { useSettings } from '../contexts/SettingsContext';
 
 export const Dropzone= () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [message, setMessage] = useState('');
+  const { updateSettings, unitSystem } = useSettings();
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     if (acceptedFiles.length === 0) return;
@@ -16,12 +18,20 @@ export const Dropzone= () => {
 
     try {
       let totalImported = 0;
+      let lastDetectedUnit = unitSystem;
+
       for (const file of acceptedFiles) {
-        const count = await processCSVFile(file);
-        totalImported += count;
+        const result = await processCSVFile(file);
+        totalImported += result.count;
+        lastDetectedUnit = result.detectedUnit;
       }
       
       setMessage(`Successfully imported ${totalImported} trips!`);
+      
+      // Auto-switch UI to match the CSV's native unit system
+      if (lastDetectedUnit !== unitSystem) {
+        updateSettings({ unitSystem: lastDetectedUnit });
+      }
       
       // Kick off background weather sync
       processMissingTemperatures();
@@ -36,7 +46,7 @@ export const Dropzone= () => {
     } finally {
       setIsProcessing(false);
     }
-  }, []);
+  }, [unitSystem, updateSettings]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,

@@ -1,7 +1,8 @@
 import Papa from 'papaparse';
 import { type Trip, db } from '../db';
+import { kmPerMile } from './units';
 
-export const processCSVFile = (file: File): Promise<number> => {
+export const processCSVFile = (file: File): Promise<{ count: number, detectedUnit: 'metric' | 'imperial' }> => {
   return new Promise((resolve, reject) => {
     Papa.parse(file, {
       header: true,
@@ -10,8 +11,15 @@ export const processCSVFile = (file: File): Promise<number> => {
         try {
           const trips: Trip[] = [];
           
+          // Determine the unit system of the CSV
+          const headers = results.meta.fields || [];
+          const isMetricCSV = headers.includes('Distance in KM');
+          
+          // The column names might vary based on region
+          const distanceCol = isMetricCSV ? 'Distance in KM' : 'Distance in Mile';
+
           for (const row of results.data as any[]) {
-            const distance = parseFloat(row['Distance in Mile']);
+            let distance = parseFloat(row[distanceCol]);
             const consumption = parseFloat(row['Consumption in Kwh']);
             
             // Validate essential data
@@ -19,7 +27,22 @@ export const processCSVFile = (file: File): Promise<number> => {
               continue;
             }
 
+            // Normalize distance to Miles for the database
+            if (isMetricCSV) {
+              distance = distance / kmPerMile;
+            }
+
+            // Calculate efficiency in mi/kWh
             const efficiency = consumption > 0 ? distance / consumption : 0;
+
+            let startOdo = parseFloat(row['Start Odometer']);
+            let endOdo = parseFloat(row['End Odometer']);
+            
+            // Normalize odometers to Miles for the database
+            if (isMetricCSV) {
+              startOdo = startOdo / kmPerMile;
+              endOdo = endOdo / kmPerMile;
+            }
 
             const trip: Trip = {
               startDate: row['Start Date'],
@@ -33,8 +56,8 @@ export const processCSVFile = (file: File): Promise<number> => {
               startLng: parseFloat(row['Start Longitude']),
               endLat: parseFloat(row['End Latitude']),
               endLng: parseFloat(row['End Longitude']),
-              startOdometer: parseFloat(row['Start Odometer']),
-              endOdometer: parseFloat(row['End Odometer']),
+              startOdometer: startOdo,
+              endOdometer: endOdo,
               tripType: row['Trip Type'],
               socSource: parseInt(row['SOC Source'], 10),
               socDestination: parseInt(row['SOC Destination'], 10),
@@ -46,7 +69,7 @@ export const processCSVFile = (file: File): Promise<number> => {
 
           // Use Dexie bulkPut to insert or update existing trips based on PK (startDate)
           await db.trips.bulkPut(trips);
-          resolve(trips.length);
+          resolve({ count: trips.length, detectedUnit: isMetricCSV ? 'metric' : 'imperial' });
         } catch (error) {
           reject(error);
         }

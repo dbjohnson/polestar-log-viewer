@@ -6,13 +6,23 @@ import {
   Scatter, ZAxis, ComposedChart
 } from 'recharts';
 import { calculateLinearRegression } from '../utils/math';
+import { useSettings } from '../contexts/SettingsContext';
+import { 
+  formatDistance, getDistanceLabel, 
+  formatEfficiency, getEfficiencyLabel,
+  formatTemp, getTempLabel,
+  formatSpeed, getSpeedLabel
+} from '../utils/units';
 
 export const Charts= () => {
+  const { unitSystem } = useSettings();
   const trips = useLiveQuery(() => db.trips.toArray());
 
   if (!trips || trips.length === 0) {
     return null;
   }
+
+  const isMetric = unitSystem === 'metric';
 
   // Sort trips by date first
   const sortedTrips = [...trips].sort((a, b) => {
@@ -22,16 +32,16 @@ export const Charts= () => {
   // Prepare data for Efficiency over time
   const timeData = sortedTrips.map(t => ({
     date: parse(t.startDate, 'yyyy-MM-dd, HH:mm', new Date()).toLocaleDateString(),
-    efficiency: parseFloat(t.efficiency.toFixed(2)),
-    distance: t.distance
+    efficiency: parseFloat(formatEfficiency(t.efficiency, isMetric).toFixed(2)),
+    distance: formatDistance(t.distance, isMetric)
   })).filter(d => d.distance > 0);
 
   // Prepare data for Efficiency vs Temperature scatter plot with trendline
   const tempValidTrips = sortedTrips.filter(t => t.temperature !== null && t.distance > 0);
   let tempChartData = tempValidTrips.map(t => ({
-    temperature: parseFloat(t.temperature!.toFixed(1)),
-    efficiency: parseFloat(t.efficiency.toFixed(2)),
-    distance: t.distance
+    temperature: parseFloat(formatTemp(t.temperature, isMetric)!.toFixed(1)),
+    efficiency: parseFloat(formatEfficiency(t.efficiency, isMetric).toFixed(2)),
+    distance: formatDistance(t.distance, isMetric)
   })).sort((a, b) => a.temperature - b.temperature);
 
   if (tempChartData.length > 1) {
@@ -53,12 +63,12 @@ export const Charts= () => {
     const mins = differenceInMinutes(end, start);
     // If trip was less than 1 min, default to 1 min to avoid infinity
     const hours = Math.max(mins, 1) / 60;
-    const speed = t.distance / hours;
+    const speedRaw = t.distance / hours;
 
     return {
-      speed: parseFloat(speed.toFixed(1)),
-      efficiency: parseFloat(t.efficiency.toFixed(2)),
-      distance: t.distance
+      speed: parseFloat(formatSpeed(speedRaw, isMetric).toFixed(1)),
+      efficiency: parseFloat(formatEfficiency(t.efficiency, isMetric).toFixed(2)),
+      distance: formatDistance(t.distance, isMetric)
     };
   }).sort((a, b) => a.speed - b.speed);
 
@@ -76,8 +86,8 @@ export const Charts= () => {
   // Prepare data for Efficiency vs Distance scatter plot with trendline
   const distanceValidTrips = sortedTrips.filter(t => t.distance > 0);
   let distanceChartData = distanceValidTrips.map(t => ({
-    efficiency: parseFloat(t.efficiency.toFixed(2)),
-    distance: parseFloat(t.distance.toFixed(1))
+    efficiency: parseFloat(formatEfficiency(t.efficiency, isMetric).toFixed(2)),
+    distance: parseFloat(formatDistance(t.distance, isMetric).toFixed(1))
   })).sort((a, b) => a.distance - b.distance);
 
   if (distanceChartData.length > 1) {
@@ -90,6 +100,8 @@ export const Charts= () => {
       }));
     }
   }
+
+  const effLabelText = getEfficiencyLabel(isMetric);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
@@ -105,7 +117,7 @@ export const Charts= () => {
               <YAxis 
                 domain={['auto', 'auto']} 
                 tick={{fontSize: 12}} 
-                label={{ value: 'mi/kWh', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontSize: 13, fill: '#666' } }} 
+                label={{ value: effLabelText, angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontSize: 13, fill: '#666' } }} 
               />
               <Tooltip 
                 contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
@@ -136,20 +148,20 @@ export const Charts= () => {
                 <XAxis 
                   type="number" 
                   dataKey="temperature" 
-                  name="Temperature (°F)" 
+                  name={`Temperature (${getTempLabel(isMetric)})`} 
                   domain={['dataMin - 5', 'dataMax + 5']}
                   tick={{fontSize: 12}}
-                  label={{ value: 'Temp (°F)', position: 'insideBottom', offset: -10, style: { fontSize: 13, fill: '#666' } }}
+                  label={{ value: `Temp (${getTempLabel(isMetric)})`, position: 'insideBottom', offset: -10, style: { fontSize: 13, fill: '#666' } }}
                 />
                 <YAxis 
                   type="number" 
                   dataKey="efficiency" 
-                  name="Efficiency (mi/kWh)" 
+                  name={`Efficiency (${effLabelText})`} 
                   domain={['auto', 'auto']}
                   tick={{fontSize: 12}}
-                  label={{ value: 'mi/kWh', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontSize: 13, fill: '#666' } }}
+                  label={{ value: effLabelText, angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontSize: 13, fill: '#666' } }}
                 />
-                <ZAxis type="number" dataKey="distance" range={[30, 30]} name="Distance" unit=" mi" />
+                <ZAxis type="number" dataKey="distance" range={[30, 30]} name={`Distance`} unit={` ${getDistanceLabel(isMetric)}`} />
                 <Tooltip cursor={{ strokeDasharray: '3 3' }} />
                 <Legend wrapperStyle={{ paddingTop: '10px' }} />
                 <Scatter name="Trips" dataKey="efficiency" fill="#3b82f6" opacity={0.6} />
@@ -174,20 +186,20 @@ export const Charts= () => {
               <XAxis 
                 type="number" 
                 dataKey="speed" 
-                name="Speed (mph)" 
+                name={`Speed (${getSpeedLabel(isMetric)})`} 
                 domain={['dataMin - 5', 'dataMax + 5']}
                 tick={{fontSize: 12}}
-                label={{ value: 'Speed (mph)', position: 'insideBottom', offset: -10, style: { fontSize: 13, fill: '#666' } }}
+                label={{ value: `Speed (${getSpeedLabel(isMetric)})`, position: 'insideBottom', offset: -10, style: { fontSize: 13, fill: '#666' } }}
               />
               <YAxis 
                 type="number" 
                 dataKey="efficiency" 
-                name="Efficiency (mi/kWh)" 
+                name={`Efficiency (${effLabelText})`} 
                 domain={['auto', 'auto']}
                 tick={{fontSize: 12}}
-                label={{ value: 'mi/kWh', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontSize: 13, fill: '#666' } }}
+                label={{ value: effLabelText, angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontSize: 13, fill: '#666' } }}
               />
-              <ZAxis type="number" dataKey="distance" range={[30, 30]} name="Distance" unit=" mi" />
+              <ZAxis type="number" dataKey="distance" range={[30, 30]} name={`Distance`} unit={` ${getDistanceLabel(isMetric)}`} />
               <Tooltip cursor={{ strokeDasharray: '3 3' }} />
               <Legend wrapperStyle={{ paddingTop: '10px' }} />
               <Scatter name="Trips" dataKey="efficiency" fill="#3b82f6" opacity={0.6} />
@@ -207,20 +219,20 @@ export const Charts= () => {
               <XAxis 
                 type="number" 
                 dataKey="distance" 
-                name="Distance (mi)" 
+                name={`Distance (${getDistanceLabel(isMetric)})`} 
                 domain={['dataMin', 'dataMax']}
                 tick={{fontSize: 12}}
-                label={{ value: 'Distance (mi)', position: 'insideBottom', offset: -10, style: { fontSize: 13, fill: '#666' } }}
+                label={{ value: `Distance (${getDistanceLabel(isMetric)})`, position: 'insideBottom', offset: -10, style: { fontSize: 13, fill: '#666' } }}
               />
               <YAxis 
                 type="number" 
                 dataKey="efficiency" 
-                name="Efficiency (mi/kWh)" 
+                name={`Efficiency (${effLabelText})`} 
                 domain={['auto', 'auto']}
                 tick={{fontSize: 12}}
-                label={{ value: 'mi/kWh', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontSize: 13, fill: '#666' } }}
+                label={{ value: effLabelText, angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontSize: 13, fill: '#666' } }}
               />
-              <ZAxis type="number" dataKey="distance" range={[30, 30]} name="Distance" unit=" mi" />
+              <ZAxis type="number" dataKey="distance" range={[30, 30]} name={`Distance`} unit={` ${getDistanceLabel(isMetric)}`} />
               <Tooltip cursor={{ strokeDasharray: '3 3' }} />
               <Legend wrapperStyle={{ paddingTop: '10px' }} />
               <Scatter name="Trips" dataKey="efficiency" fill="#3b82f6" opacity={0.6} />
@@ -233,3 +245,4 @@ export const Charts= () => {
     </div>
   );
 };
+
