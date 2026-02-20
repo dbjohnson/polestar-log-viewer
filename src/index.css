@@ -1,0 +1,10 @@
+@import "tailwindcss";
+
+@theme {
+  --color-polestar-gold: #ffcc00; /* Just an example if needed */
+}
+
+/* Custom base styles to ensure everything is reset properly */
+:root {
+  background-color: #f3f4f6; /* bg-gray-100 */
+}
