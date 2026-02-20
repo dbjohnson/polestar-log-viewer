@@ -74,14 +74,19 @@ export const DashboardCards= () => {
   );
 };
 
-const Card = ({ title, value, icon, bgColor }: { title: string, value: string, icon: React.ReactNode, bgColor: string }) => (
-  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex items-center">
-    <div className={`p-4 rounded-full ${bgColor} mr-4`}>
-      {icon}
+const Card = ({ title, value, icon, bgColor }: { title: string, value: string, icon: React.ReactNode, bgColor: string }) => {
+  // Extract base color name (e.g. "bg-blue-100" -> "blue") to construct dark mode classes dynamically
+  const colorName = bgColor.split('-')[1];
+  
+  return (
+    <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 p-6 flex items-center transition-colors duration-200">
+      <div className={`p-4 rounded-full ${bgColor} dark:bg-${colorName}-900/50 mr-4 transition-colors duration-200`}>
+        {icon}
+      </div>
+      <div>
+        <h3 className="text-sm font-medium text-gray-500 dark:text-slate-400 mb-1">{title}</h3>
+        <p className="text-2xl font-bold text-gray-900 dark:text-white">{value}</p>
+      </div>
     </div>
-    <div>
-      <h3 className="text-sm font-medium text-gray-500 mb-1">{title}</h3>
-      <p className="text-2xl font-bold text-gray-900">{value}</p>
-    </div>
-  </div>
-);
+  );
+};

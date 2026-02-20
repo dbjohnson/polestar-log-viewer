@@ -102,26 +102,37 @@ export const Charts= () => {
   }
 
   const effLabelText = getEfficiencyLabel(isMetric);
+  const { resolvedTheme } = useSettings();
+  const isDark = resolvedTheme === 'dark';
+
+  const gridColor = isDark ? '#334155' : '#eee';
+  const textColor = isDark ? '#94a3b8' : '#666';
+  const tooltipStyle = {
+    backgroundColor: isDark ? '#1e293b' : '#fff',
+    borderColor: isDark ? '#334155' : '#eee',
+    color: isDark ? '#f8fafc' : '#111827',
+    borderRadius: '8px',
+    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+  };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
       
       {/* Time Chart */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-        <h3 className="text-lg font-semibold text-gray-800 mb-6">Efficiency Over Time</h3>
+      <div className="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 transition-colors duration-200">
+        <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-6">Efficiency Over Time</h3>
         <div className="h-72 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={timeData} margin={{ top: 5, right: 20, bottom: 20, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
-              <XAxis dataKey="date" tick={{fontSize: 12}} minTickGap={30} />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridColor} />
+              <XAxis dataKey="date" tick={{fontSize: 12, fill: textColor}} minTickGap={30} stroke={gridColor} />
               <YAxis 
                 domain={['auto', 'auto']} 
-                tick={{fontSize: 12}} 
-                label={{ value: effLabelText, angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontSize: 13, fill: '#666' } }} 
+                tick={{fontSize: 12, fill: textColor}} 
+                stroke={gridColor}
+                label={{ value: effLabelText, angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontSize: 13, fill: textColor } }} 
               />
-              <Tooltip 
-                contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-              />
+              <Tooltip contentStyle={tooltipStyle} />
               <Legend wrapperStyle={{ paddingTop: '10px' }} />
               <Line 
                 type="monotone" 
@@ -138,38 +149,40 @@ export const Charts= () => {
       </div>
 
       {/* Scatter Chart (Efficiency vs Temp) */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-        <h3 className="text-lg font-semibold text-gray-800 mb-6">Efficiency vs. Temp</h3>
+      <div className="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 transition-colors duration-200">
+        <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-6">Efficiency vs. Temp</h3>
         <div className="h-72 w-full">
           {tempValidTrips.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={tempChartData} margin={{ top: 5, right: 20, bottom: 20, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridColor} />
                 <XAxis 
                   type="number" 
                   dataKey="temperature" 
                   name={`Temperature (${getTempLabel(isMetric)})`} 
                   domain={['dataMin - 5', 'dataMax + 5']}
-                  tick={{fontSize: 12}}
-                  label={{ value: `Temp (${getTempLabel(isMetric)})`, position: 'insideBottom', offset: -10, style: { fontSize: 13, fill: '#666' } }}
+                  tick={{fontSize: 12, fill: textColor}}
+                  stroke={gridColor}
+                  label={{ value: `Temp (${getTempLabel(isMetric)})`, position: 'insideBottom', offset: -10, style: { fontSize: 13, fill: textColor } }}
                 />
                 <YAxis 
                   type="number" 
                   dataKey="efficiency" 
                   name={`Efficiency (${effLabelText})`} 
                   domain={['auto', 'auto']}
-                  tick={{fontSize: 12}}
-                  label={{ value: effLabelText, angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontSize: 13, fill: '#666' } }}
+                  tick={{fontSize: 12, fill: textColor}}
+                  stroke={gridColor}
+                  label={{ value: effLabelText, angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontSize: 13, fill: textColor } }}
                 />
                 <ZAxis type="number" dataKey="distance" range={[30, 30]} name={`Distance`} unit={` ${getDistanceLabel(isMetric)}`} />
-                <Tooltip cursor={{ strokeDasharray: '3 3' }} />
+                <Tooltip cursor={{ strokeDasharray: '3 3', stroke: gridColor }} contentStyle={tooltipStyle} />
                 <Legend wrapperStyle={{ paddingTop: '10px' }} />
-                <Scatter name="Trips" dataKey="efficiency" fill="#3b82f6" opacity={0.6} />
-                <Line dataKey="trendline" name="Trend" stroke="#ef4444" strokeWidth={2} dot={false} activeDot={false} />
+                <Scatter name="Trips" dataKey="efficiency" fill="#ef4444" opacity={0.6} />
+                <Line dataKey="trendline" name="Trend" stroke="#3b82f6" strokeWidth={2} dot={false} activeDot={false} />
               </ComposedChart>
             </ResponsiveContainer>
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-gray-400">
+            <div className="w-full h-full flex items-center justify-center text-gray-400 dark:text-slate-500">
               <p>Fetching weather data...</p>
             </div>
           )}
@@ -177,66 +190,70 @@ export const Charts= () => {
       </div>
 
       {/* Scatter Chart (Efficiency vs Speed) */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-        <h3 className="text-lg font-semibold text-gray-800 mb-6">Efficiency vs. Speed</h3>
+      <div className="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 transition-colors duration-200">
+        <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-6">Efficiency vs. Speed</h3>
         <div className="h-72 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={speedChartData} margin={{ top: 5, right: 20, bottom: 20, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridColor} />
               <XAxis 
                 type="number" 
                 dataKey="speed" 
                 name={`Speed (${getSpeedLabel(isMetric)})`} 
                 domain={['dataMin - 5', 'dataMax + 5']}
-                tick={{fontSize: 12}}
-                label={{ value: `Speed (${getSpeedLabel(isMetric)})`, position: 'insideBottom', offset: -10, style: { fontSize: 13, fill: '#666' } }}
+                tick={{fontSize: 12, fill: textColor}}
+                stroke={gridColor}
+                label={{ value: `Speed (${getSpeedLabel(isMetric)})`, position: 'insideBottom', offset: -10, style: { fontSize: 13, fill: textColor } }}
               />
               <YAxis 
                 type="number" 
                 dataKey="efficiency" 
                 name={`Efficiency (${effLabelText})`} 
                 domain={['auto', 'auto']}
-                tick={{fontSize: 12}}
-                label={{ value: effLabelText, angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontSize: 13, fill: '#666' } }}
+                tick={{fontSize: 12, fill: textColor}}
+                stroke={gridColor}
+                label={{ value: effLabelText, angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontSize: 13, fill: textColor } }}
               />
               <ZAxis type="number" dataKey="distance" range={[30, 30]} name={`Distance`} unit={` ${getDistanceLabel(isMetric)}`} />
-              <Tooltip cursor={{ strokeDasharray: '3 3' }} />
+              <Tooltip cursor={{ strokeDasharray: '3 3', stroke: gridColor }} contentStyle={tooltipStyle} />
               <Legend wrapperStyle={{ paddingTop: '10px' }} />
-              <Scatter name="Trips" dataKey="efficiency" fill="#3b82f6" opacity={0.6} />
-              <Line dataKey="trendline" name="Trend" stroke="#ef4444" strokeWidth={2} dot={false} activeDot={false} />
+              <Scatter name="Trips" dataKey="efficiency" fill="#ef4444" opacity={0.6} />
+              <Line dataKey="trendline" name="Trend" stroke="#3b82f6" strokeWidth={2} dot={false} activeDot={false} />
             </ComposedChart>
           </ResponsiveContainer>
         </div>
       </div>
 
       {/* Scatter Chart (Efficiency vs Distance) */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-        <h3 className="text-lg font-semibold text-gray-800 mb-6">Efficiency vs. Distance</h3>
+      <div className="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 transition-colors duration-200">
+        <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-6">Efficiency vs. Distance</h3>
         <div className="h-72 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={distanceChartData} margin={{ top: 5, right: 20, bottom: 20, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridColor} />
               <XAxis 
                 type="number" 
                 dataKey="distance" 
                 name={`Distance (${getDistanceLabel(isMetric)})`} 
                 domain={['dataMin', 'dataMax']}
-                tick={{fontSize: 12}}
-                label={{ value: `Distance (${getDistanceLabel(isMetric)})`, position: 'insideBottom', offset: -10, style: { fontSize: 13, fill: '#666' } }}
+                tick={{fontSize: 12, fill: textColor}}
+                stroke={gridColor}
+                label={{ value: `Distance (${getDistanceLabel(isMetric)})`, position: 'insideBottom', offset: -10, style: { fontSize: 13, fill: textColor } }}
               />
               <YAxis 
                 type="number" 
                 dataKey="efficiency" 
                 name={`Efficiency (${effLabelText})`} 
                 domain={['auto', 'auto']}
-                tick={{fontSize: 12}}
-                label={{ value: effLabelText, angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontSize: 13, fill: '#666' } }}
+                tick={{fontSize: 12, fill: textColor}}
+                stroke={gridColor}
+                label={{ value: effLabelText, angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontSize: 13, fill: textColor } }}
               />
               <ZAxis type="number" dataKey="distance" range={[30, 30]} name={`Distance`} unit={` ${getDistanceLabel(isMetric)}`} />
-              <Tooltip cursor={{ strokeDasharray: '3 3' }} />
+              <Tooltip cursor={{ strokeDasharray: '3 3', stroke: gridColor }} contentStyle={tooltipStyle} />
               <Legend wrapperStyle={{ paddingTop: '10px' }} />
-              <Scatter name="Trips" dataKey="efficiency" fill="#3b82f6" opacity={0.6} />
-              <Line dataKey="trendline" name="Trend" stroke="#ef4444" strokeWidth={2} dot={false} activeDot={false} />
+              <Scatter name="Trips" dataKey="efficiency" fill="#ef4444" opacity={0.6} />
+              <Line dataKey="trendline" name="Trend" stroke="#3b82f6" strokeWidth={2} dot={false} activeDot={false} />
             </ComposedChart>
           </ResponsiveContainer>
         </div>

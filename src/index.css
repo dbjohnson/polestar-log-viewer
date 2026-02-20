@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-polestar-gold: #ffcc00; /* Just an example if needed */
 }
@@ -7,4 +9,9 @@
 /* Custom base styles to ensure everything is reset properly */
 :root {
   background-color: #f3f4f6; /* bg-gray-100 */
+}
+
+/* Apply dark background to the actual body so the scroll-bounce area is dark too */
+html.dark {
+  background-color: #0f172a; /* bg-slate-950 */
 }

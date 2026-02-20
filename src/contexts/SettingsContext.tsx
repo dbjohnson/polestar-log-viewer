@@ -1,9 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 
 export type UnitSystem = 'imperial' | 'metric';
+export type Theme = 'light' | 'dark' | 'system';
 
 interface AppSettings {
   unitSystem: UnitSystem;
+  theme: Theme;
   gasPrice: number; // $/gal or $/L
   iceMileage: number; // mpg or L/100km
   elecRate: number; // $/kWh
@@ -12,10 +14,12 @@ interface AppSettings {
 
 interface SettingsContextType extends AppSettings {
   updateSettings: (newSettings: Partial<AppSettings>) => void;
+  resolvedTheme: 'light' | 'dark'; // The actual theme being applied (resolves 'system' based on OS)
 }
 
 const defaultSettings: AppSettings = {
   unitSystem: 'imperial',
+  theme: 'system',
   gasPrice: 3.00,
   iceMileage: 30,
   elecRate: 0.15,
@@ -37,9 +41,49 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     return defaultSettings;
   });
 
+  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light');
+
+  // Handle saving to localStorage
   useEffect(() => {
     localStorage.setItem('polestar-settings', JSON.stringify(settings));
   }, [settings]);
+
+  // Handle actual DOM updates for Dark Mode
+  useEffect(() => {
+    const root = window.document.documentElement;
+    
+    let isDark = false;
+    if (settings.theme === 'dark') {
+      isDark = true;
+    } else if (settings.theme === 'system') {
+      isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+
+    if (isDark) {
+      root.classList.add('dark');
+      setResolvedTheme('dark');
+    } else {
+      root.classList.remove('dark');
+      setResolvedTheme('light');
+    }
+
+    // Listen for OS theme changes if on system setting
+    if (settings.theme === 'system') {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      const handleChange = (e: MediaQueryListEvent) => {
+        if (e.matches) {
+          root.classList.add('dark');
+          setResolvedTheme('dark');
+        } else {
+          root.classList.remove('dark');
+          setResolvedTheme('light');
+        }
+      };
+      
+      mediaQuery.addEventListener('change', handleChange);
+      return () => mediaQuery.removeEventListener('change', handleChange);
+    }
+  }, [settings.theme]);
 
   const updateSettings = (newSettings: Partial<AppSettings>) => {
     setSettings((prev) => {
@@ -73,7 +117,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
   };
 
   return (
-    <SettingsContext.Provider value={{ ...settings, updateSettings }}>
+    <SettingsContext.Provider value={{ ...settings, resolvedTheme, updateSettings }}>
       {children}
     </SettingsContext.Provider>
   );
