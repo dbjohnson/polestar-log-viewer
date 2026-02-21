@@ -67,9 +67,28 @@ export const processCSVFile = (file: File): Promise<{ count: number, detectedUni
             trips.push(trip);
           }
 
+          // Smart Merge: Fetch existing trips to preserve user annotations
+          const existingTrips = await db.trips.toArray();
+          const existingMap = new Map(existingTrips.map(t => [t.startDate, t]));
+          
+          // Merge new data with existing annotations
+          const mergedTrips = trips.map(trip => {
+            const existing = existingMap.get(trip.startDate);
+            if (existing) {
+              // Preserve user annotations while updating core data
+              return {
+                ...trip,
+                excluded: existing.excluded,
+                notes: existing.notes,
+                tags: existing.tags,
+              };
+            }
+            return trip;
+          });
+
           // Use Dexie bulkPut to insert or update existing trips based on PK (startDate)
-          await db.trips.bulkPut(trips);
-          resolve({ count: trips.length, detectedUnit: isMetricCSV ? 'metric' : 'imperial' });
+          await db.trips.bulkPut(mergedTrips);
+          resolve({ count: mergedTrips.length, detectedUnit: isMetricCSV ? 'metric' : 'imperial' });
         } catch (error) {
           reject(error);
         }

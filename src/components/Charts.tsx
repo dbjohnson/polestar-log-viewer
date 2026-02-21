@@ -15,16 +15,16 @@ import {
 
 export const Charts= () => {
   const { unitSystem } = useSettings();
-  const { trips } = useFilter();
+  const { statsTrips } = useFilter();
 
-  if (!trips || trips.length === 0) {
+  if (!statsTrips || statsTrips.length === 0) {
     return null;
   }
 
   const isMetric = unitSystem === 'metric';
 
   // Sort trips by date first
-  const sortedTrips = [...trips].sort((a, b) => {
+  const sortedTrips = [...statsTrips].sort((a, b) => {
     return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
   });
 

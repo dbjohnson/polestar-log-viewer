@@ -11,17 +11,17 @@ import {
 
 export const DashboardCards= () => {
   const { unitSystem, gasPrice, iceMileage, elecRate, batteryCapacity } = useSettings();
-  const { trips } = useFilter();
+  const { statsTrips } = useFilter();
 
-  if (!trips || trips.length === 0) {
+  if (!statsTrips || statsTrips.length === 0) {
     return null;
   }
 
   const isMetric = unitSystem === 'metric';
 
   // RAW DB Values (always Imperial)
-  const rawTotalDistance = trips.reduce((sum, trip) => sum + trip.distance, 0);
-  const totalEnergy = trips.reduce((sum, trip) => sum + trip.consumption, 0);
+  const rawTotalDistance = statsTrips.reduce((sum, trip) => sum + trip.distance, 0);
+  const totalEnergy = statsTrips.reduce((sum, trip) => sum + trip.consumption, 0);
   const rawAvgEfficiency = totalEnergy > 0 ? rawTotalDistance / totalEnergy : 0;
 
   // CONVERTED Values

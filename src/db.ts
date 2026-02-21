@@ -18,6 +18,11 @@ export interface Trip {
   socSource: number;
   socDestination: number;
   temperature: number | null; // Fetched later
+  
+  // User annotations - persist across CSV re-uploads
+  excluded?: boolean;
+  notes?: string;
+  tags?: string[];
 }
 
 export class PolestarDB extends Dexie {

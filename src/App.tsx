@@ -39,7 +39,8 @@ function AppContent() {
                 <img 
                   src={`${import.meta.env.BASE_URL}polestar-logo.svg`} 
                   alt="Polestar Logo" 
-                  className={`w-20 h-20 transition-all duration-200 ${resolvedTheme === 'dark' ? 'invert opacity-90' : ''}`} 
+                  className={`w-10 h-10 transition-all duration-200 ${resolvedTheme === 'dark' ? 'invert opacity-90' : ''}`}
+                  style={{ shapeRendering: 'geometricPrecision', transform: 'translateZ(0)' }}
                 />
               </div>
               <h1 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">

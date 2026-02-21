@@ -8,15 +8,21 @@ interface FilterState {
   distanceRange: { min: number | ''; max: number | '' }; // Stored in Miles
   tempRange: { min: number | ''; max: number | '' }; // Stored in Fahrenheit
   efficiencyRange: { min: number | ''; max: number | '' }; // Stored in mi/kWh
+  searchText: string;
+  excludedTags: string[];
 }
 
 interface FilterContextType {
-  trips: Trip[];
+  allTrips: Trip[];
+  viewableTrips: Trip[];
+  statsTrips: Trip[];
   totalTrips: number;
-  filteredCount: number;
+  viewableCount: number;
+  statsCount: number;
   filters: FilterState;
   setFilters: React.Dispatch<React.SetStateAction<FilterState>>;
   resetFilters: () => void;
+  saveTripDetails: (startDate: string, notes: string, tags: string[]) => Promise<void>;
 }
 
 const defaultFilters: FilterState = {
@@ -24,6 +30,8 @@ const defaultFilters: FilterState = {
   distanceRange: { min: '', max: '' },
   tempRange: { min: '', max: '' },
   efficiencyRange: { min: '', max: '' },
+  searchText: '',
+  excludedTags: [],
 };
 
 const FilterContext = createContext<FilterContextType | undefined>(undefined);
@@ -44,7 +52,8 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     return defaultFilters;
   });
   
-  const [filteredTrips, setFilteredTrips] = useState<Trip[]>([]);
+  const [viewableTrips, setViewableTrips] = useState<Trip[]>([]);
+  const [statsTrips, setStatsTrips] = useState<Trip[]>([]);
 
   // Save filters to localStorage whenever they change
   useEffect(() => {
@@ -53,6 +62,8 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   useEffect(() => {
     if (!allTrips) return;
+
+    const searchLower = filters.searchText.toLowerCase().trim();
 
     const results = allTrips.filter((trip) => {
       // 1. Date Filter
@@ -80,22 +91,48 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       if (filters.efficiencyRange.min !== '' && trip.efficiency < filters.efficiencyRange.min) return false;
       if (filters.efficiencyRange.max !== '' && trip.efficiency > filters.efficiencyRange.max) return false;
 
+      // 5. Search Text Filter (Notes & Tags)
+      if (searchLower) {
+        const noteMatch = trip.notes?.toLowerCase().includes(searchLower);
+        const tagMatch = trip.tags?.some(tag => tag.toLowerCase().includes(searchLower));
+        if (!noteMatch && !tagMatch) return false;
+      }
+
+      // 6. Exclude by Tags - Filter out trips that have ANY of the excluded tags
+      if (filters.excludedTags.length > 0) {
+        const hasExcludedTag = trip.tags?.some(tag => 
+          filters.excludedTags.includes(tag.toLowerCase())
+        );
+        if (hasExcludedTag) return false;
+      }
+
       return true;
     });
 
-    setFilteredTrips(results);
+    setViewableTrips(results);
+    // statsTrips is the same as viewableTrips now since we use tags for exclusion
+    setStatsTrips(results);
   }, [allTrips, filters]);
 
   const resetFilters = () => setFilters(defaultFilters);
 
+  // Save notes and tags for a trip
+  const saveTripDetails = async (startDate: string, notes: string, tags: string[]) => {
+    await db.trips.update(startDate, { notes, tags });
+  };
+
   return (
     <FilterContext.Provider value={{ 
-      trips: filteredTrips, 
+      allTrips,
+      viewableTrips, 
+      statsTrips,
       totalTrips: allTrips.length, 
-      filteredCount: filteredTrips.length,
+      viewableCount: viewableTrips.length,
+      statsCount: statsTrips.length,
       filters, 
       setFilters, 
-      resetFilters 
+      resetFilters,
+      saveTripDetails
     }}>
       {children}
     </FilterContext.Provider>
