@@ -114,9 +114,6 @@ export const FilterBar: React.FC = () => {
           </div>
           <div>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Filter Data</h3>
-            <p className="text-xs text-gray-500 dark:text-slate-400">
-              {statsCount} included, {viewableCount - statsCount} excluded of {totalTrips} total
-            </p>
           </div>
         </div>
         <div className="text-gray-400 dark:text-slate-500">
