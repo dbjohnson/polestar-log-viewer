@@ -6,7 +6,7 @@ import { kmPerMile, getDistanceLabel, getTempLabel, getEfficiencyLabel } from '.
 
 export const FilterBar: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const { allTrips, filters, setFilters, resetFilters, viewableCount, statsCount, totalTrips } = useFilter();
+  const { allTrips, filters, setFilters, resetFilters } = useFilter();
   const { unitSystem } = useSettings();
   const isMetric = unitSystem === 'metric';
 
