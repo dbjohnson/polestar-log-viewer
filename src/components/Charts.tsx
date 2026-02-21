@@ -14,7 +14,7 @@ import {
 } from '../utils/units';
 
 export const Charts= () => {
-  const { unitSystem } = useSettings();
+  const { unitSystem, resolvedTheme } = useSettings();
   const { statsTrips } = useFilter();
 
   if (!statsTrips || statsTrips.length === 0) {
@@ -22,6 +22,7 @@ export const Charts= () => {
   }
 
   const isMetric = unitSystem === 'metric';
+  const isDark = resolvedTheme === 'dark';
 
   // Sort trips by date first
   const sortedTrips = [...statsTrips].sort((a, b) => {
@@ -101,8 +102,6 @@ export const Charts= () => {
   }
 
   const effLabelText = getEfficiencyLabel(isMetric);
-  const { resolvedTheme } = useSettings();
-  const isDark = resolvedTheme === 'dark';
 
   const gridColor = isDark ? '#334155' : '#eee';
   const textColor = isDark ? '#94a3b8' : '#666';
