@@ -10,7 +10,8 @@ import {
   formatTemp, getTempLabel,
   calculateCO2Conserved, getCO2Label
 } from '../utils/units';
-import { MessageSquare } from 'lucide-react';
+import { MessageSquare, Download } from 'lucide-react';
+import Papa from 'papaparse';
 
 export const TripTable= () => {
   const { unitSystem } = useSettings();
@@ -23,6 +24,42 @@ export const TripTable= () => {
 
   const isMetric = unitSystem === 'metric';
 
+  const handleDownload = () => {
+    const data = sortedTrips.map((trip) => ({
+      'Start Date': trip.startDate,
+      'End Date': trip.endDate,
+      'Start Address': trip.startAddress,
+      'End Address': trip.endAddress,
+      [`Distance (${getDistanceLabel(isMetric)})`]: formatDistance(trip.distance, isMetric),
+      'Energy (kWh)': trip.consumption.toFixed(2),
+      [`Efficiency (${getEfficiencyLabel(isMetric)})`]: formatEfficiency(trip.efficiency, isMetric),
+      'Start Odometer (mi)': trip.startOdometer,
+      'End Odometer (mi)': trip.endOdometer,
+      'Start Latitude': trip.startLat,
+      'Start Longitude': trip.startLng,
+      'End Latitude': trip.endLat,
+      'End Longitude': trip.endLng,
+      'Trip Type': trip.tripType,
+      'Start SOC (%)': trip.socSource,
+      'End SOC (%)': trip.socDestination,
+      [`Temperature (${getTempLabel(isMetric)})`]: trip.temperature !== null ? formatTemp(trip.temperature, isMetric) : '',
+      [`CO2 Saved (${getCO2Label(isMetric)})`]: calculateCO2Conserved(trip.distance, isMetric),
+      'Excluded': trip.excluded ? 'Yes' : 'No',
+      'Notes': trip.notes || '',
+      'Tags': trip.tags ? trip.tags.join(', ') : '',
+    }));
+
+    const csv = Papa.unparse(data);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const dateStr = format(new Date(), 'yyyy-MM-dd');
+    link.href = URL.createObjectURL(blob);
+    link.download = `polestar-trips-${dateStr}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // Sort descending by date
   const sortedTrips = [...viewableTrips].sort((a, b) => {
     return new Date(b.startDate).getTime() - new Date(a.startDate).getTime();
@@ -33,9 +70,18 @@ export const TripTable= () => {
       <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 overflow-hidden mb-8 transition-colors duration-200">
         <div className="px-6 py-5 border-b border-gray-100 dark:border-slate-800 flex justify-between items-center bg-gray-50/50 dark:bg-slate-900/50">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Trip History</h3>
-          <span className="text-sm text-gray-500 dark:text-slate-400 font-medium bg-white dark:bg-slate-800 px-3 py-1 rounded-full border border-gray-200 dark:border-slate-700">
-            {viewableTrips.length} Total Trips
-          </span>
+          <div className="flex items-center space-x-3">
+            <button
+              onClick={handleDownload}
+              className="flex items-center space-x-2 text-sm text-gray-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors bg-white dark:bg-slate-800 px-3 py-1.5 rounded-full border border-gray-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-600"
+            >
+              <Download className="w-4 h-4" />
+              <span>Export CSV</span>
+            </button>
+            <span className="text-sm text-gray-500 dark:text-slate-400 font-medium bg-white dark:bg-slate-800 px-3 py-1 rounded-full border border-gray-200 dark:border-slate-700">
+              {viewableTrips.length} Total Trips
+            </span>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
