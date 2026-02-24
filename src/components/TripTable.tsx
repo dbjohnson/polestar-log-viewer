@@ -140,13 +140,27 @@ export const TripTable= () => {
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <button
-                        onClick={() => setSelectedTrip(trip)}
-                        className="flex items-center space-x-2 text-gray-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                        title="View trip details"
-                      >
-                        <Info className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => setSelectedTrip(trip)}
+                          className="flex items-center text-gray-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                          title="View trip details"
+                        >
+                          <Info className="w-4 h-4" />
+                        </button>
+                        {trip.tags && trip.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {trip.tags.map((tag) => (
+                              <span
+                                key={tag}
+                                className="inline-flex items-center px-2 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/30 rounded-full"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
