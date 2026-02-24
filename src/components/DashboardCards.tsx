@@ -1,6 +1,5 @@
-import React from 'react';
 import { useFilter } from '../contexts/FilterContext';
-import { Zap, Activity, Navigation, Leaf, Battery, PiggyBank } from 'lucide-react';
+import { Zap, Activity, Navigation, Leaf, Route, PiggyBank } from 'lucide-react';
 import { useSettings } from '../contexts/SettingsContext';
 import { 
   formatDistance, getDistanceLabel, 
@@ -54,7 +53,7 @@ export const DashboardCards= () => {
       <Card 
         title="Est. Max Range" 
         value={`${estMaxRange.toFixed(0)} ${getDistanceLabel(isMetric)}`} 
-        icon={<Battery className="w-6 h-6 text-cyan-500" />} 
+        icon={<Route className="w-6 h-6 text-cyan-500" />} 
         bgColor="bg-cyan-100" 
       />
       <Card 
