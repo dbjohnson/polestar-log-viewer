@@ -34,6 +34,22 @@ export class PolestarDB extends Dexie {
       trips: 'startDate, endDate, startLat, startLng, temperature',
     });
   }
+
+  // Clear all cached temperature data
+  async clearAllTemperatures(): Promise<number> {
+    const allTrips = await this.trips.toArray();
+    const tripsWithTemp = allTrips.filter(t => t.temperature !== null);
+    
+    // Update all trips to have null temperature
+    await this.trips.bulkUpdate(
+      tripsWithTemp.map(trip => ({
+        key: trip.startDate,
+        changes: { temperature: null }
+      }))
+    );
+    
+    return tripsWithTemp.length;
+  }
 }
 
 export const db = new PolestarDB();

@@ -1,18 +1,41 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useSettings } from '../contexts/SettingsContext';
-import { X } from 'lucide-react';
+import { X, AlertTriangle, Loader2 } from 'lucide-react';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
+  onClearTemperatureCache?: () => Promise<void>;
 }
 
-export const SettingsModal: React.FC<Props> = ({ isOpen, onClose }) => {
+export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, onClearTemperatureCache }) => {
   const { unitSystem, gasPrice, iceMileage, elecRate, batteryCapacity, updateSettings } = useSettings();
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
 
   if (!isOpen) return null;
 
   const isMetric = unitSystem === 'metric';
+
+  const handleClearClick = () => {
+    setShowConfirmDialog(true);
+  };
+
+  const handleConfirmClear = async () => {
+    setShowConfirmDialog(false);
+    if (onClearTemperatureCache) {
+      setIsClearing(true);
+      try {
+        await onClearTemperatureCache();
+      } finally {
+        setIsClearing(false);
+      }
+    }
+  };
+
+  const handleCancelClear = () => {
+    setShowConfirmDialog(false);
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
@@ -123,9 +146,68 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose }) => {
               </div>
             </div>
 
+            {/* Data Management */}
+            <div className="border-t border-gray-100 dark:border-slate-800 pt-6 transition-colors">
+              <h3 className="text-sm font-medium text-gray-500 dark:text-slate-400 mb-4">Data Management</h3>
+              
+              <button
+                onClick={handleClearClick}
+                disabled={isClearing}
+                className="w-full py-2 px-4 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-lg transition-colors flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isClearing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Clearing temperature data...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Clear All Temperature Data</span>
+                  </>
+                )}
+              </button>
+              <p className="text-xs text-gray-500 dark:text-slate-400 mt-2">
+                This will remove all cached temperature calculations and re-fetch them from the weather API.
+              </p>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Confirmation Dialog */}
+      {showConfirmDialog && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-sm shadow-xl overflow-hidden transition-colors duration-200">
+            <div className="p-6">
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                  <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Clear Temperature Data?</h3>
+              </div>
+              
+              <p className="text-gray-600 dark:text-slate-300 mb-6">
+                This will remove all cached temperature calculations from your trips and automatically re-fetch them from the weather API. This may take a few moments.
+              </p>
+
+              <div className="flex space-x-3">
+                <button
+                  onClick={handleCancelClear}
+                  className="flex-1 py-2 px-4 bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-300 rounded-lg transition-colors font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmClear}
+                  className="flex-1 py-2 px-4 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-medium"
+                >
+                  Clear & Re-fetch
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -8,6 +8,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { SettingsProvider, useSettings } from './contexts/SettingsContext';
 import { FilterProvider } from './contexts/FilterContext';
 import { processMissingTemperatures } from './utils/weatherWorker';
+import { db } from './db';
 import { Github, Settings, Moon, Sun, Monitor } from 'lucide-react';
 
 function AppContent() {
@@ -18,6 +19,14 @@ function AppContent() {
   useEffect(() => {
     processMissingTemperatures();
   }, []);
+
+  const handleClearTemperatureCache = async () => {
+    const clearedCount = await db.clearAllTemperatures();
+    console.log(`Cleared temperature data for ${clearedCount} trips`);
+    // Re-fetch all temperatures
+    await processMissingTemperatures();
+    console.log('Temperature re-fetch complete');
+  };
 
   const cycleTheme = () => {
     if (theme === 'system') updateSettings({ theme: 'dark' });
@@ -95,7 +104,11 @@ function AppContent() {
 
       </main>
       
-      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+      <SettingsModal 
+        isOpen={isSettingsOpen} 
+        onClose={() => setIsSettingsOpen(false)} 
+        onClearTemperatureCache={handleClearTemperatureCache}
+      />
     </div>
   );
 }

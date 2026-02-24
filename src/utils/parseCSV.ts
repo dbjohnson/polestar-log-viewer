@@ -75,12 +75,13 @@ export const processCSVFile = (file: File): Promise<{ count: number, detectedUni
           const mergedTrips = trips.map(trip => {
             const existing = existingMap.get(trip.startDate);
             if (existing) {
-              // Preserve user annotations while updating core data
+              // Preserve user annotations and cached temperature while updating core data
               return {
                 ...trip,
                 excluded: existing.excluded,
                 notes: existing.notes,
                 tags: existing.tags,
+                temperature: existing.temperature, // Preserve cached temperature
               };
             }
             return trip;
