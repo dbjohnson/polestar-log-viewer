@@ -2,12 +2,13 @@ import { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { UploadCloud } from 'lucide-react';
 import { processCSVFile } from '../utils/parseCSV';
-import { processMissingTemperatures } from '../utils/weatherWorker';
+import { processMissingTemperatures, type TemperatureProgressCallback } from '../utils/weatherWorker';
 import { useSettings } from '../contexts/SettingsContext';
 
 export const Dropzone= () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [message, setMessage] = useState('');
+  const [tempProgress, setTempProgress] = useState<{ completed: number; failed: number; total: number } | null>(null);
   const { updateSettings, unitSystem } = useSettings();
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
@@ -15,6 +16,7 @@ export const Dropzone= () => {
 
     setIsProcessing(true);
     setMessage('Processing CSV...');
+    setTempProgress(null);
 
     try {
       let totalImported = 0;
@@ -33,11 +35,20 @@ export const Dropzone= () => {
         updateSettings({ unitSystem: lastDetectedUnit });
       }
       
-      // Kick off background weather sync
-      processMissingTemperatures();
+      // Kick off background weather sync with progress
+      setMessage('Fetching temperature data...');
+      
+      const progressCallback: TemperatureProgressCallback = (completed, failed, total) => {
+        setTempProgress({ completed, failed, total });
+      };
+      
+      const result = await processMissingTemperatures(progressCallback);
+      
+      setMessage(`Complete! ${result.completed}/${result.total} trips updated with temperature data.`);
       
       setTimeout(() => {
         setMessage('');
+        setTempProgress(null);
       }, 5000);
       
     } catch (error) {
@@ -75,7 +86,17 @@ export const Dropzone= () => {
         <p className="text-sm text-gray-400 dark:text-slate-500 mt-2">Your data stays on your device. All processing is done locally in your browser.</p>
       </div>
       
-      {isProcessing && <p className="mt-4 text-blue-600 dark:text-blue-400 text-center font-medium animate-pulse">{message}</p>}
+      {isProcessing && (
+        <div className="mt-4 text-blue-600 dark:text-blue-400 text-center">
+          <p className="font-medium animate-pulse">{message}</p>
+          {tempProgress && (
+            <p className="text-sm mt-1">
+              Progress: {tempProgress.completed}/{tempProgress.total} 
+              {tempProgress.failed > 0 && ` (${tempProgress.failed} failed)`}
+            </p>
+          )}
+        </div>
+      )}
       {!isProcessing && message && <p className="mt-4 text-green-600 dark:text-green-400 text-center font-medium">{message}</p>}
     </div>
   );
