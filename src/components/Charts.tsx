@@ -119,8 +119,8 @@ export const Charts= () => {
       {/* Time Chart */}
       <div className="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 transition-colors duration-200">
         <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-6">Efficiency Over Time</h3>
-        <div className="h-72 w-full">
-          <ResponsiveContainer width="100%" height="100%">
+        <div className="h-72 w-full min-h-[288px]">
+          <ResponsiveContainer width="100%" height="100%" minHeight={288}>
             <LineChart data={timeData} margin={{ top: 5, right: 20, bottom: 20, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridColor} />
               <XAxis dataKey="date" tick={{fontSize: 12, fill: textColor}} minTickGap={30} stroke={gridColor} />
@@ -149,9 +149,9 @@ export const Charts= () => {
       {/* Scatter Chart (Efficiency vs Temp) */}
       <div className="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 transition-colors duration-200">
         <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-6">Efficiency vs. Temp</h3>
-        <div className="h-72 w-full">
+        <div className="h-72 w-full min-h-[288px]">
           {tempValidTrips.length > 0 ? (
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minHeight={288}>
               <ComposedChart data={tempChartData} margin={{ top: 5, right: 20, bottom: 20, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridColor} />
                 <XAxis 
@@ -190,8 +190,8 @@ export const Charts= () => {
       {/* Scatter Chart (Efficiency vs Speed) */}
       <div className="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 transition-colors duration-200">
         <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-6">Efficiency vs. Speed</h3>
-        <div className="h-72 w-full">
-          <ResponsiveContainer width="100%" height="100%">
+        <div className="h-72 w-full min-h-[288px]">
+          <ResponsiveContainer width="100%" height="100%" minHeight={288}>
             <ComposedChart data={speedChartData} margin={{ top: 5, right: 20, bottom: 20, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridColor} />
               <XAxis 
@@ -225,8 +225,8 @@ export const Charts= () => {
       {/* Scatter Chart (Efficiency vs Distance) */}
       <div className="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 transition-colors duration-200">
         <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-6">Efficiency vs. Distance</h3>
-        <div className="h-72 w-full">
-          <ResponsiveContainer width="100%" height="100%">
+        <div className="h-72 w-full min-h-[288px]">
+          <ResponsiveContainer width="100%" height="100%" minHeight={288}>
             <ComposedChart data={distanceChartData} margin={{ top: 5, right: 20, bottom: 20, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridColor} />
               <XAxis 

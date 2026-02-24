@@ -3,6 +3,7 @@ import { format, parse } from 'date-fns';
 import { useSettings } from '../contexts/SettingsContext';
 import { useFilter } from '../contexts/FilterContext';
 import { NoteModal } from './NoteModal';
+import { RouteMapModal } from './RouteMapModal';
 import type { Trip } from '../db';
 import { 
   formatDistance, getDistanceLabel, 
@@ -10,13 +11,14 @@ import {
   formatTemp, getTempLabel,
   calculateCO2Conserved, getCO2Label
 } from '../utils/units';
-import { MessageSquare, Download } from 'lucide-react';
+import { MessageSquare, Download, Map } from 'lucide-react';
 import Papa from 'papaparse';
 
 export const TripTable= () => {
   const { unitSystem } = useSettings();
   const { viewableTrips, saveTripDetails } = useFilter();
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
+  const [routeTrip, setRouteTrip] = useState<Trip | null>(null);
 
   if (!viewableTrips || viewableTrips.length === 0) {
     return null;
@@ -93,7 +95,7 @@ export const TripTable= () => {
                 <th className="px-6 py-4 font-semibold tracking-wider">Efficiency</th>
                 <th className="px-6 py-4 font-semibold tracking-wider">Temp ({getTempLabel(isMetric)})</th>
                 <th className="px-6 py-4 font-semibold tracking-wider">CO₂ Saved ({getCO2Label(isMetric)})</th>
-                <th className="px-6 py-4 font-semibold tracking-wider">Notes</th>
+                <th className="px-6 py-4 font-semibold tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-slate-800 text-gray-700 dark:text-slate-300">
@@ -132,26 +134,35 @@ export const TripTable= () => {
                       {co2Saved.toFixed(1)}
                     </td>
                     <td className="px-6 py-4">
-                      <button
-                        onClick={() => setEditingTrip(trip)}
-                        className="flex items-center space-x-2 text-gray-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                      >
-                        <MessageSquare 
-                          className={`w-4 h-4 ${trip.notes ? 'fill-blue-100 text-blue-600 dark:fill-blue-900/30 dark:text-blue-400' : ''}`} 
-                        />
-                        {trip.tags && trip.tags.length > 0 && (
-                          <div className="flex space-x-1">
-                            {trip.tags.slice(0, 2).map(tag => (
-                              <span key={tag} className="text-[10px] px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded">
-                                {tag}
-                              </span>
-                            ))}
-                            {trip.tags.length > 2 && (
-                              <span className="text-[10px] px-1.5 py-0.5 text-gray-500 dark:text-slate-400">+{trip.tags.length - 2}</span>
-                            )}
-                          </div>
-                        )}
-                      </button>
+                      <div className="flex items-center space-x-3">
+                        <button
+                          onClick={() => setRouteTrip(trip)}
+                          className="flex items-center space-x-2 text-gray-500 dark:text-slate-400 hover:text-green-600 dark:hover:text-green-400 transition-colors"
+                          title="View route on map"
+                        >
+                          <Map className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setEditingTrip(trip)}
+                          className="flex items-center space-x-2 text-gray-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                        >
+                          <MessageSquare 
+                            className={`w-4 h-4 ${trip.notes ? 'fill-blue-100 text-blue-600 dark:fill-blue-900/30 dark:text-blue-400' : ''}`} 
+                          />
+                          {trip.tags && trip.tags.length > 0 && (
+                            <div className="flex space-x-1">
+                              {trip.tags.slice(0, 2).map(tag => (
+                                <span key={tag} className="text-[10px] px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded">
+                                  {tag}
+                                </span>
+                              ))}
+                              {trip.tags.length > 2 && (
+                                <span className="text-[10px] px-1.5 py-0.5 text-gray-500 dark:text-slate-400">+{trip.tags.length - 2}</span>
+                              )}
+                            </div>
+                          )}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -170,6 +181,12 @@ export const TripTable= () => {
             saveTripDetails(editingTrip.startDate, notes, tags);
           }
         }}
+      />
+
+      <RouteMapModal 
+        trip={routeTrip}
+        isOpen={!!routeTrip}
+        onClose={() => setRouteTrip(null)}
       />
     </>
   );
