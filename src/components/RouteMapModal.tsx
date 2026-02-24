@@ -8,6 +8,7 @@ import {
   formatDistance, getDistanceLabel, 
   formatEfficiency, getEfficiencyLabel,
   formatTemp, getTempLabel,
+  formatSpeed, getSpeedLabel,
   calculateCO2Conserved, getCO2Label
 } from '../utils/units';
 import { parse, format } from 'date-fns';
@@ -37,6 +38,7 @@ interface Props {
   trip: Trip | null;
   isOpen: boolean;
   onClose: () => void;
+  onSave: (notes: string, tags: string[]) => void;
 }
 
 // Custom markers
@@ -129,14 +131,58 @@ const setCachedRoutes = (trip: Trip, routes: OSRMRoute[]) => {
   routeCache.set(cacheKey, { routes, timestamp: Date.now() });
 };
 
-export const RouteMapModal: React.FC<Props> = ({ trip, isOpen, onClose }) => {
+export const RouteMapModal: React.FC<Props> = ({ trip, isOpen, onClose, onSave }) => {
   const { unitSystem } = useSettings();
   const [routes, setRoutes] = useState<OSRMRoute[]>([]);
   const [selectedRouteIndex, setSelectedRouteIndex] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
+  // Notes and tags state for auto-save
+  const [noteText, setNoteText] = useState('');
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
+  
   const isMetric = unitSystem === 'metric';
+
+  // Reset form when trip changes
+  useEffect(() => {
+    if (trip) {
+      setNoteText(trip.notes || '');
+      setTags(trip.tags || []);
+      setTagInput('');
+    }
+  }, [trip]);
+
+  // Auto-save when notes or tags change
+  useEffect(() => {
+    if (trip) {
+      const timeoutId = setTimeout(() => {
+        onSave(noteText, tags);
+      }, 500); // Auto-save after 500ms of no changes
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [noteText, tags, trip, onSave]);
+
+  const handleAddTag = () => {
+    const trimmed = tagInput.trim().toLowerCase();
+    if (trimmed && !tags.includes(trimmed)) {
+      setTags([...tags, trimmed]);
+      setTagInput('');
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddTag();
+    }
+  };
+
+  const removeTag = (tagToRemove: string) => {
+    setTags(tags.filter(tag => tag !== tagToRemove));
+  };
 
   // Sort routes by distance difference from actual trip
   const sortRoutesByDistance = useCallback((routesToSort: OSRMRoute[], actualDistance: number) => {
@@ -200,10 +246,20 @@ export const RouteMapModal: React.FC<Props> = ({ trip, isOpen, onClose }) => {
   if (!isOpen || !trip) return null;
 
   const parsedDate = parse(trip.startDate, 'yyyy-MM-dd, HH:mm', new Date());
+  const parsedEndDate = parse(trip.endDate, 'yyyy-MM-dd, HH:mm', new Date());
   const distance = formatDistance(trip.distance, isMetric);
   const efficiency = formatEfficiency(trip.efficiency, isMetric);
   const temp = formatTemp(trip.temperature, isMetric);
   const co2Saved = calculateCO2Conserved(trip.distance, isMetric);
+  
+  // Calculate duration and average speed
+  const durationMs = parsedEndDate.getTime() - parsedDate.getTime();
+  const durationHours = durationMs / (1000 * 60 * 60);
+  const durationMinutes = Math.floor(durationMs / (1000 * 60));
+  const hours = Math.floor(durationMinutes / 60);
+  const minutes = durationMinutes % 60;
+  const tripTime = `${hours}:${minutes.toString().padStart(2, '0')}`;
+  const avgSpeed = durationHours > 0 ? formatSpeed(trip.distance / durationHours, isMetric) : 0;
   
   const isHighEfficiency = isMetric ? efficiency > 4.8 : efficiency > 3.0;
   const isMedEfficiency = isMetric ? efficiency > 3.2 : efficiency > 2.0;
@@ -291,9 +347,24 @@ export const RouteMapModal: React.FC<Props> = ({ trip, isOpen, onClose }) => {
               {/* Trip Details */}
               <div className="space-y-4">
                 <div>
-                  <label className="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Date & Time</label>
-                  <p className="text-gray-900 dark:text-white font-medium">
-                    {format(parsedDate, 'MMM d, yyyy h:mm a')}
+                  <label className="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Start Location</label>
+                  <div className="flex items-start space-x-2 mt-1">
+                    <MapPin className="w-4 h-4 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
+                    <p className="text-gray-700 dark:text-slate-300 text-sm">{trip.startAddress}</p>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-slate-500 mt-1">
+                    {trip.startLat.toFixed(4)}, {trip.startLng.toFixed(4)}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">End Location</label>
+                  <div className="flex items-start space-x-2 mt-1">
+                    <MapPin className="w-4 h-4 text-red-500 dark:text-red-400 mt-0.5 flex-shrink-0" />
+                    <p className="text-gray-700 dark:text-slate-300 text-sm">{trip.endAddress}</p>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-slate-500 mt-1">
+                    {trip.endLat.toFixed(4)}, {trip.endLng.toFixed(4)}
                   </p>
                 </div>
 
@@ -301,6 +372,20 @@ export const RouteMapModal: React.FC<Props> = ({ trip, isOpen, onClose }) => {
                   <label className="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Distance</label>
                   <p className="text-gray-900 dark:text-white font-medium">
                     {distance.toFixed(1)} {getDistanceLabel(isMetric)}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Trip Time</label>
+                  <p className="text-gray-900 dark:text-white font-medium">
+                    {tripTime}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Avg Speed</label>
+                  <p className="text-gray-900 dark:text-white font-medium">
+                    {avgSpeed.toFixed(1)} {getSpeedLabel(isMetric)}
                   </p>
                 </div>
 
@@ -338,33 +423,6 @@ export const RouteMapModal: React.FC<Props> = ({ trip, isOpen, onClose }) => {
                   </p>
                 </div>
 
-                <div className="border-t border-gray-200 dark:border-slate-700 pt-4">
-                  <label className="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Start Location</label>
-                  <div className="flex items-start space-x-2 mt-1">
-                    <MapPin className="w-4 h-4 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
-                    <p className="text-gray-700 dark:text-slate-300 text-sm">{trip.startAddress}</p>
-                  </div>
-                  <p className="text-xs text-gray-500 dark:text-slate-500 mt-1">
-                    {trip.startLat.toFixed(4)}, {trip.startLng.toFixed(4)}
-                  </p>
-                </div>
-
-                <div>
-                  <label className="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">End Location</label>
-                  <div className="flex items-start space-x-2 mt-1">
-                    <MapPin className="w-4 h-4 text-red-500 dark:text-red-400 mt-0.5 flex-shrink-0" />
-                    <p className="text-gray-700 dark:text-slate-300 text-sm">{trip.endAddress}</p>
-                  </div>
-                  <p className="text-xs text-gray-500 dark:text-slate-500 mt-1">
-                    {trip.endLat.toFixed(4)}, {trip.endLng.toFixed(4)}
-                  </p>
-                </div>
-
-                <div>
-                  <label className="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Trip Type</label>
-                  <p className="text-gray-900 dark:text-white font-medium">{trip.tripType}</p>
-                </div>
-
                 <div>
                   <label className="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">State of Charge</label>
                   <p className="text-gray-900 dark:text-white font-medium">
@@ -372,30 +430,50 @@ export const RouteMapModal: React.FC<Props> = ({ trip, isOpen, onClose }) => {
                   </p>
                 </div>
 
-                {trip.notes && (
-                  <div className="border-t border-gray-200 dark:border-slate-700 pt-4">
+                {/* Notes and Tags Editing Section */}
+                <div className="border-t border-gray-200 dark:border-slate-700 pt-4 space-y-4">
+                  <div>
                     <label className="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Notes</label>
-                    <p className="text-gray-700 dark:text-slate-300 text-sm mt-1 bg-gray-100 dark:bg-slate-900 p-3 rounded-lg">
-                      {trip.notes}
-                    </p>
+                    <textarea
+                      value={noteText}
+                      onChange={(e) => setNoteText(e.target.value)}
+                      placeholder="Add notes about this trip..."
+                      rows={3}
+                      className="w-full mt-1 px-3 py-2 text-sm border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-gray-900 dark:text-white rounded-lg outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    />
                   </div>
-                )}
 
-                {trip.tags && trip.tags.length > 0 && (
                   <div>
                     <label className="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Tags</label>
-                    <div className="flex flex-wrap gap-2 mt-1">
-                      {trip.tags.map(tag => (
-                        <span 
-                          key={tag} 
-                          className="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded"
+                    <div className="flex flex-wrap gap-2 mb-2 mt-1">
+                      {tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="inline-flex items-center px-2.5 py-1 text-xs font-medium text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/30 rounded-full"
                         >
                           {tag}
+                          <button
+                            onClick={() => removeTag(tag)}
+                            className="ml-1.5 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200"
+                          >
+                            ×
+                          </button>
                         </span>
                       ))}
                     </div>
+                    <input
+                      type="text"
+                      value={tagInput}
+                      onChange={(e) => setTagInput(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      placeholder="Type a tag and press Enter"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-gray-900 dark:text-white rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <p className="mt-1 text-xs text-gray-400 dark:text-slate-500">
+                      Press Enter to add a tag
+                    </p>
                   </div>
-                )}
+                </div>
               </div>
 
               {/* Route Selection */}
