@@ -1,17 +1,26 @@
 import React, { useState } from 'react';
 import { useSettings } from '../contexts/SettingsContext';
-import { X, AlertTriangle, Loader2 } from 'lucide-react';
+import { X, AlertTriangle, Loader2, Download, Upload } from 'lucide-react';
+import { downloadExportFile } from '../utils/exportData';
+import { importAllData, checkLocalDatabaseEmpty } from '../utils/importData';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   onClearTemperatureCache?: () => Promise<void>;
+  onImportComplete?: () => void;
 }
 
-export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, onClearTemperatureCache }) => {
+export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, onClearTemperatureCache, onImportComplete }) => {
   const { unitSystem, gasPrice, iceMileage, elecRate, batteryCapacity, updateSettings } = useSettings();
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [isDbEmpty, setIsDbEmpty] = useState(true);
 
   if (!isOpen) return null;
 
@@ -35,6 +44,69 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, onClearTempera
 
   const handleCancelClear = () => {
     setShowConfirmDialog(false);
+  };
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      await downloadExportFile();
+    } catch (err) {
+      console.error('Export failed:', err);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleImportClick = async () => {
+    const dbEmpty = await checkLocalDatabaseEmpty();
+    setIsDbEmpty(dbEmpty);
+    setShowImportDialog(true);
+    setImportFile(null);
+    setImportError(null);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && file.name.endsWith('.json')) {
+      setImportFile(file);
+      setImportError(null);
+    } else {
+      setImportError('Please select a valid .json export file');
+    }
+  };
+
+  const handleImportConfirm = async () => {
+    if (!importFile) return;
+
+    setIsImporting(true);
+    setImportError(null);
+
+    try {
+      const content = await importFile.text();
+      const result = await importAllData(content);
+
+      if (result.success) {
+        setShowImportDialog(false);
+        setImportFile(null);
+        if (onImportComplete) {
+          onImportComplete();
+        }
+        // Force page reload to apply new settings
+        window.location.reload();
+      } else {
+        setImportError(result.error || 'Import failed');
+      }
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : 'Failed to read file');
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const handleCancelImport = () => {
+    setShowImportDialog(false);
+    setImportFile(null);
+    setImportError(null);
   };
 
   return (
@@ -150,25 +222,59 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, onClearTempera
             <div className="border-t border-gray-100 dark:border-slate-800 pt-6 transition-colors">
               <h3 className="text-sm font-medium text-gray-500 dark:text-slate-400 mb-4">Data Management</h3>
               
+              {/* Export Button */}
               <button
-                onClick={handleClearClick}
-                disabled={isClearing}
-                className="w-full py-2 px-4 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-lg transition-colors flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={handleExport}
+                disabled={isExporting}
+                className="w-full py-2 px-4 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800 rounded-lg transition-colors flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed mb-3"
               >
-                {isClearing ? (
+                {isExporting ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Clearing temperature data...</span>
+                    <span>Exporting data...</span>
                   </>
                 ) : (
                   <>
-                    <span>Clear All Temperature Data</span>
+                    <Download className="w-4 h-4" />
+                    <span>Export All Data</span>
                   </>
                 )}
               </button>
+
+              {/* Import Button */}
+              <button
+                onClick={handleImportClick}
+                disabled={isExporting || isClearing}
+                className="w-full py-2 px-4 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800 rounded-lg transition-colors flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed mb-3"
+              >
+                <Upload className="w-4 h-4" />
+                <span>Import Data</span>
+              </button>
               <p className="text-xs text-gray-500 dark:text-slate-400 mt-2">
-                This will remove all cached temperature calculations and re-fetch them from the weather API.
+                Export creates a complete backup of all trips, settings, and annotations. Import restores from a backup file, replacing all current data.
               </p>
+              
+              <div className="mt-4 border-t border-gray-200 dark:border-slate-700 pt-4">
+                <button
+                  onClick={handleClearClick}
+                  disabled={isClearing}
+                  className="w-full py-2 px-4 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-lg transition-colors flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isClearing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Clearing temperature data...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Clear All Temperature Data</span>
+                    </>
+                  )}
+                </button>
+                <p className="text-xs text-gray-500 dark:text-slate-400 mt-2">
+                  This will remove all cached temperature calculations and re-fetch them from the weather API.
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -202,6 +308,83 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, onClearTempera
                   className="flex-1 py-2 px-4 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-medium"
                 >
                   Clear & Re-fetch
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Import Dialog */}
+      {showImportDialog && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-sm shadow-xl overflow-hidden transition-colors duration-200">
+            <div className="p-6">
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                  <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Import Data?</h3>
+              </div>
+              
+              {!isDbEmpty && (
+                <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-3 mb-4">
+                  <p className="text-sm text-red-700 dark:text-red-400">
+                    <strong>Warning:</strong> Your current database is not empty. Importing will <strong>replace all existing data</strong> including trips, settings, and annotations.
+                  </p>
+                </div>
+              )}
+
+              <p className="text-gray-600 dark:text-slate-300 mb-4">
+                Select a Polestar export file (.json) to restore your data.
+              </p>
+
+              <div className="mb-4">
+                <input
+                  type="file"
+                  accept=".json"
+                  onChange={handleFileSelect}
+                  className="block w-full text-sm text-gray-500 dark:text-slate-400
+                    file:mr-4 file:py-2 file:px-4
+                    file:rounded-lg file:border-0
+                    file:text-sm file:font-semibold
+                    file:bg-blue-50 file:text-blue-700
+                    dark:file:bg-blue-900/30 dark:file:text-blue-400
+                    hover:file:bg-blue-100 dark:hover:file:bg-blue-900/50
+                    file:transition-colors
+                    cursor-pointer"
+                />
+                {importFile && (
+                  <p className="text-sm text-green-600 dark:text-green-400 mt-2">
+                    Selected: {importFile.name}
+                  </p>
+                )}
+                {importError && (
+                  <p className="text-sm text-red-600 dark:text-red-400 mt-2">
+                    {importError}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex space-x-3">
+                <button
+                  onClick={handleCancelImport}
+                  className="flex-1 py-2 px-4 bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-300 rounded-lg transition-colors font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleImportConfirm}
+                  disabled={!importFile || isImporting}
+                  className="flex-1 py-2 px-4 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors font-medium"
+                >
+                  {isImporting ? (
+                    <span className="flex items-center justify-center">
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      Importing...
+                    </span>
+                  ) : (
+                    'Import'
+                  )}
                 </button>
               </div>
             </div>

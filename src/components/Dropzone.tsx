@@ -3,66 +3,127 @@ import { useDropzone } from 'react-dropzone';
 import { UploadCloud } from 'lucide-react';
 import { processCSVFile } from '../utils/parseCSV';
 import { processMissingTemperatures, type TemperatureProgressCallback } from '../utils/weatherWorker';
+import { importAllData, checkLocalDatabaseEmpty } from '../utils/importData';
 import { useSettings } from '../contexts/SettingsContext';
 
-export const Dropzone= () => {
+export const Dropzone = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [message, setMessage] = useState('');
   const [tempProgress, setTempProgress] = useState<{ completed: number; failed: number; total: number } | null>(null);
+  const [showImportConfirm, setShowImportConfirm] = useState(false);
+  const [pendingImportFile, setPendingImportFile] = useState<File | null>(null);
   const { updateSettings, unitSystem } = useSettings();
+
+  const handleCSVImport = async (file: File) => {
+    setMessage('Processing CSV...');
+    
+    const result = await processCSVFile(file);
+    
+    setMessage(`Successfully imported ${result.count} trips!`);
+    
+    // Auto-switch UI to match the CSV's native unit system
+    if (result.detectedUnit !== unitSystem) {
+      updateSettings({ unitSystem: result.detectedUnit });
+    }
+    
+    // Kick off background weather sync with progress
+    setMessage('Fetching temperature data...');
+    
+    const progressCallback: TemperatureProgressCallback = (completed, failed, total) => {
+      setTempProgress({ completed, failed, total });
+    };
+    
+    const tempResult = await processMissingTemperatures(progressCallback);
+    
+    setMessage(`Complete! ${tempResult.completed}/${tempResult.total} trips updated with temperature data.`);
+  };
+
+  const handleJSONImport = async (file: File) => {
+    const isEmpty = await checkLocalDatabaseEmpty();
+    
+    if (!isEmpty) {
+      // Show confirmation dialog if database is not empty
+      setPendingImportFile(file);
+      setShowImportConfirm(true);
+      setIsProcessing(false);
+      return;
+    }
+    
+    await processJSONImport(file);
+  };
+
+  const processJSONImport = async (file: File) => {
+    setMessage('Importing backup data...');
+    
+    const content = await file.text();
+    const result = await importAllData(content);
+    
+    if (result.success) {
+      setMessage(`Successfully restored ${result.tripsImported} trips! Reloading...`);
+      // Force reload to apply settings
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+    } else {
+      throw new Error(result.error || 'Import failed');
+    }
+  };
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     if (acceptedFiles.length === 0) return;
 
     setIsProcessing(true);
-    setMessage('Processing CSV...');
+    setMessage('');
     setTempProgress(null);
 
     try {
-      let totalImported = 0;
-      let lastDetectedUnit = unitSystem;
-
       for (const file of acceptedFiles) {
-        const result = await processCSVFile(file);
-        totalImported += result.count;
-        lastDetectedUnit = result.detectedUnit;
+        if (file.name.endsWith('.csv')) {
+          await handleCSVImport(file);
+        } else if (file.name.endsWith('.json')) {
+          await handleJSONImport(file);
+        } else {
+          throw new Error(`Unsupported file type: ${file.name}`);
+        }
       }
-      
-      setMessage(`Successfully imported ${totalImported} trips!`);
-      
-      // Auto-switch UI to match the CSV's native unit system
-      if (lastDetectedUnit !== unitSystem) {
-        updateSettings({ unitSystem: lastDetectedUnit });
-      }
-      
-      // Kick off background weather sync with progress
-      setMessage('Fetching temperature data...');
-      
-      const progressCallback: TemperatureProgressCallback = (completed, failed, total) => {
-        setTempProgress({ completed, failed, total });
-      };
-      
-      const result = await processMissingTemperatures(progressCallback);
-      
-      setMessage(`Complete! ${result.completed}/${result.total} trips updated with temperature data.`);
-      
-      setTimeout(() => {
-        setMessage('');
-        setTempProgress(null);
-      }, 5000);
-      
     } catch (error) {
       console.error(error);
-      setMessage('Error processing file. Please ensure it is a valid Polestar CSV.');
+      setMessage(error instanceof Error ? error.message : 'Error processing file. Please ensure it is a valid file.');
     } finally {
+      if (!showImportConfirm) {
+        setIsProcessing(false);
+      }
+    }
+  }, [showImportConfirm]);
+
+  const handleConfirmImport = async () => {
+    if (!pendingImportFile) return;
+    
+    setShowImportConfirm(false);
+    setIsProcessing(true);
+    
+    try {
+      await processJSONImport(pendingImportFile);
+    } catch (error) {
+      console.error(error);
+      setMessage(error instanceof Error ? error.message : 'Import failed');
       setIsProcessing(false);
     }
-  }, [unitSystem, updateSettings]);
+  };
+
+  const handleCancelImport = () => {
+    setShowImportConfirm(false);
+    setPendingImportFile(null);
+    setIsProcessing(false);
+    setMessage('Import cancelled');
+    setTimeout(() => setMessage(''), 3000);
+  };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
-      'text/csv': ['.csv']
+      'text/csv': ['.csv'],
+      'application/json': ['.json']
     }
   });
 
@@ -80,10 +141,11 @@ export const Dropzone= () => {
         <UploadCloud className="w-12 h-12 mb-4 text-gray-400 dark:text-slate-500" />
         {
           isDragActive ?
-            <p className="text-lg font-medium">Drop the CSV here ...</p> :
-            <p className="text-lg font-medium">Drag & drop your Polestar Journey Log (.csv) here, or click to select</p>
+            <p className="text-lg font-medium">Drop files here ...</p> :
+            <p className="text-lg font-medium">Drag & drop Polestar files (.csv or .json) here, or click to select</p>
         }
-        <p className="text-sm text-gray-400 dark:text-slate-500 mt-2">Your data stays on your device. All processing is done locally in your browser.</p>
+        <p className="text-sm text-gray-400 dark:text-slate-500 mt-2">Accepts CSV journey logs or JSON backup files</p>
+        <p className="text-xs text-gray-400 dark:text-slate-500 mt-1">Your data stays on your device. All processing is done locally.</p>
       </div>
       
       {isProcessing && (
@@ -97,7 +159,54 @@ export const Dropzone= () => {
           )}
         </div>
       )}
-      {!isProcessing && message && <p className="mt-4 text-green-600 dark:text-green-400 text-center font-medium">{message}</p>}
+      {!isProcessing && message && (
+        <p className={`mt-4 text-center font-medium ${message.includes('Error') ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+          {message}
+        </p>
+      )}
+
+      {/* Import Confirmation Dialog */}
+      {showImportConfirm && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-sm shadow-xl overflow-hidden">
+            <div className="p-6">
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Replace All Data?</h3>
+              </div>
+              
+              <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-3 mb-4">
+                <p className="text-sm text-red-700 dark:text-red-400">
+                  <strong>Warning:</strong> You have existing trips in your database. Importing this backup will <strong>replace all existing data</strong> including trips, settings, and annotations.
+                </p>
+              </div>
+
+              <p className="text-gray-600 dark:text-slate-300 mb-6">
+                This action cannot be undone. Are you sure you want to continue?
+              </p>
+
+              <div className="flex space-x-3">
+                <button
+                  onClick={handleCancelImport}
+                  className="flex-1 py-2 px-4 bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-300 rounded-lg transition-colors font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmImport}
+                  className="flex-1 py-2 px-4 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-medium"
+                >
+                  Import & Replace
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

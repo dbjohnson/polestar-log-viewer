@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, useEffect, type ReactNode }
 export type UnitSystem = 'imperial' | 'metric';
 export type Theme = 'light' | 'dark' | 'system';
 
-interface AppSettings {
+export interface AppSettings {
   unitSystem: UnitSystem;
   theme: Theme;
   gasPrice: number; // $/gal or $/L
