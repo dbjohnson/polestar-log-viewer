@@ -1,7 +1,7 @@
 import { parse, differenceInMinutes } from 'date-fns';
 import { useState } from 'react';
 import {
-  Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  Line, XAxis, YAxis, CartesianGrid, Legend, ResponsiveContainer,
   Scatter, ZAxis, ComposedChart
 } from 'recharts';
 import { calculateLinearRegression, calculateDistanceMovingAverage } from '../utils/math';
@@ -26,20 +26,33 @@ export const Charts= () => {
   const isMetric = unitSystem === 'metric';
   const isDark = resolvedTheme === 'dark';
 
-  // Sort trips by date first
+  // Sort trips by date in reverse order (newest first)
   const sortedTrips = [...statsTrips].sort((a, b) => {
-    return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
+    return new Date(b.startDate).getTime() - new Date(a.startDate).getTime();
   });
 
-  // Prepare data for Efficiency over time
+  // Prepare data for Efficiency over time with distance ago
   const timeData = sortedTrips.map(t => ({
     date: parse(t.startDate, 'yyyy-MM-dd, HH:mm', new Date()).toLocaleDateString(),
     efficiency: parseFloat(formatEfficiency(t.efficiency, isMetric).toFixed(2)),
     distance: formatDistance(t.distance, isMetric)
   })).filter(d => d.distance > 0);
 
-  // Calculate moving average for efficiency over time
-  const timeDataWithMovingAvg = calculateDistanceMovingAverage(timeData, movingAverageWindow);
+  // Calculate cumulative distance from most recent (distance ago)
+  const timeDataWithDistanceAgo = timeData.reduce((acc, t, index) => {
+    const cumulativeDistance = index === 0 ? 0 : acc[index - 1].distanceAgo + timeData[index - 1].distance;
+    acc.push({
+      ...t,
+      distanceAgo: parseFloat(cumulativeDistance.toFixed(1))
+    });
+    return acc;
+  }, [] as Array<{ date: string; efficiency: number; distance: number; distanceAgo: number }>);
+
+  // Calculate moving average for efficiency over time (reverse order for proper calculation)
+  const timeDataWithMovingAvg = calculateDistanceMovingAverage(
+    [...timeDataWithDistanceAgo].reverse(), 
+    movingAverageWindow
+  ).reverse();
 
   // Prepare data for Efficiency vs Temperature scatter plot with trendline
   const tempValidTrips = sortedTrips.filter(t => t.temperature !== null && t.distance > 0);
@@ -110,13 +123,6 @@ export const Charts= () => {
 
   const gridColor = isDark ? '#334155' : '#eee';
   const textColor = isDark ? '#94a3b8' : '#666';
-  const tooltipStyle = {
-    backgroundColor: isDark ? '#1e293b' : '#fff',
-    borderColor: isDark ? '#334155' : '#eee',
-    color: isDark ? '#f8fafc' : '#111827',
-    borderRadius: '8px',
-    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
-  };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
@@ -147,7 +153,20 @@ export const Charts= () => {
           <ResponsiveContainer width="100%" height="100%" minHeight={288}>
             <ComposedChart data={timeDataWithMovingAvg} margin={{ top: 5, right: 20, bottom: 20, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridColor} />
-              <XAxis dataKey="date" tick={{fontSize: 12, fill: textColor}} minTickGap={30} stroke={gridColor} />
+              <XAxis 
+                dataKey="distanceAgo" 
+                type="number"
+                reversed={true}
+                domain={[0, 'dataMax']}
+                tick={{fontSize: 12, fill: textColor}} 
+                stroke={gridColor}
+                label={{ 
+                  value: `Distance Ago (${getDistanceLabel(isMetric)})`, 
+                  position: 'insideBottom', 
+                  offset: -10, 
+                  style: { fontSize: 13, fill: textColor } 
+                }}
+              />
               <YAxis 
                 domain={['auto', 'auto']} 
                 tick={{fontSize: 12, fill: textColor}} 
@@ -155,7 +174,6 @@ export const Charts= () => {
                 label={{ value: effLabelText, angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontSize: 13, fill: textColor } }} 
               />
               <ZAxis type="number" dataKey="distance" range={[30, 30]} name={`Distance`} unit={` ${getDistanceLabel(isMetric)}`} />
-              <Tooltip cursor={{ strokeDasharray: '3 3', stroke: gridColor }} contentStyle={tooltipStyle} />
               <Legend wrapperStyle={{ paddingTop: '10px' }} />
               <Scatter name="Trips" dataKey="efficiency" fill="#ef4444" opacity={0.5} />
               <Line 
@@ -199,7 +217,6 @@ export const Charts= () => {
                   label={{ value: effLabelText, angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontSize: 13, fill: textColor } }}
                 />
                 <ZAxis type="number" dataKey="distance" range={[30, 30]} name={`Distance`} unit={` ${getDistanceLabel(isMetric)}`} />
-                <Tooltip cursor={{ strokeDasharray: '3 3', stroke: gridColor }} contentStyle={tooltipStyle} />
                 <Legend wrapperStyle={{ paddingTop: '10px' }} />
                 <Scatter name="Trips" dataKey="efficiency" fill="#ef4444" opacity={0.6} />
                 <Line dataKey="trendline" name="Trend" stroke="#3b82f6" strokeWidth={2} dot={false} activeDot={false} />
@@ -239,7 +256,6 @@ export const Charts= () => {
                 label={{ value: effLabelText, angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontSize: 13, fill: textColor } }}
               />
               <ZAxis type="number" dataKey="distance" range={[30, 30]} name={`Distance`} unit={` ${getDistanceLabel(isMetric)}`} />
-              <Tooltip cursor={{ strokeDasharray: '3 3', stroke: gridColor }} contentStyle={tooltipStyle} />
               <Legend wrapperStyle={{ paddingTop: '10px' }} />
               <Scatter name="Trips" dataKey="efficiency" fill="#ef4444" opacity={0.6} />
               <Line dataKey="trendline" name="Trend" stroke="#3b82f6" strokeWidth={2} dot={false} activeDot={false} />
@@ -274,7 +290,6 @@ export const Charts= () => {
                 label={{ value: effLabelText, angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontSize: 13, fill: textColor } }}
               />
               <ZAxis type="number" dataKey="distance" range={[30, 30]} name={`Distance`} unit={` ${getDistanceLabel(isMetric)}`} />
-              <Tooltip cursor={{ strokeDasharray: '3 3', stroke: gridColor }} contentStyle={tooltipStyle} />
               <Legend wrapperStyle={{ paddingTop: '10px' }} />
               <Scatter name="Trips" dataKey="efficiency" fill="#ef4444" opacity={0.6} />
               <Line dataKey="trendline" name="Trend" stroke="#3b82f6" strokeWidth={2} dot={false} activeDot={false} />
