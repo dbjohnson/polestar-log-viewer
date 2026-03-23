@@ -40,14 +40,15 @@ export function generateTrendline(
 /**
  * Calculate a moving average based on cumulative distance.
  * For each point, looks backward to include all points within the specified window distance.
- * @param data Array of trips with distance and efficiency values
+ * Calculates both efficiency and temperature moving averages.
+ * @param data Array of trips with distance, efficiency, and temperature values
  * @param windowDistance The window size in miles (regardless of unit system)
- * @returns Array with movingAverage property added to each data point
+ * @returns Array with movingAverage and tempMovingAverage properties added to each data point
  */
-export function calculateDistanceMovingAverage(
-  data: { distance: number; efficiency: number; date: string }[],
+export function calculateDistanceMovingAverageWithTemp(
+  data: { distance: number; efficiency: number; date: string; temperature: number | null }[],
   windowDistance: number
-): { distance: number; efficiency: number; date: string; movingAverage: number | null }[] {
+): { distance: number; efficiency: number; date: string; temperature: number | null; movingAverage: number | null; tempMovingAverage: number | null }[] {
   if (data.length === 0) return [];
   
   // Calculate cumulative distance for each point
@@ -63,20 +64,31 @@ export function calculateDistanceMovingAverage(
   return withCumulative.map((point, index) => {
     // Look backward to find all points within the window
     const windowStart = point.cumulativeDistance - windowDistance;
-    const windowPoints: number[] = [];
+    const windowEfficiencies: number[] = [];
+    const windowTemperatures: number[] = [];
     
     for (let i = 0; i <= index; i++) {
       if (withCumulative[i].cumulativeDistance >= windowStart) {
-        windowPoints.push(withCumulative[i].efficiency);
+        windowEfficiencies.push(withCumulative[i].efficiency);
+        if (withCumulative[i].temperature !== null) {
+          windowTemperatures.push(withCumulative[i].temperature);
+        }
       }
     }
     
     // Only calculate if we have at least 2 points in the window
-    if (windowPoints.length < 2) {
-      return { ...point, movingAverage: null };
-    }
+    const efficiencyAvg = windowEfficiencies.length >= 2 
+      ? parseFloat((windowEfficiencies.reduce((sum, val) => sum + val, 0) / windowEfficiencies.length).toFixed(2))
+      : null;
     
-    const avg = windowPoints.reduce((sum, val) => sum + val, 0) / windowPoints.length;
-    return { ...point, movingAverage: parseFloat(avg.toFixed(2)) };
+    const tempAvg = windowTemperatures.length >= 2 
+      ? parseFloat((windowTemperatures.reduce((sum, val) => sum + val, 0) / windowTemperatures.length).toFixed(1))
+      : null;
+    
+    return { 
+      ...point, 
+      movingAverage: efficiencyAvg,
+      tempMovingAverage: tempAvg
+    };
   });
 }
