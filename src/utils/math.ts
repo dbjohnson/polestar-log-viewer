@@ -70,8 +70,9 @@ export function calculateDistanceMovingAverageWithTemp(
     for (let i = 0; i <= index; i++) {
       if (withCumulative[i].cumulativeDistance >= windowStart) {
         windowEfficiencies.push(withCumulative[i].efficiency);
-        if (withCumulative[i].temperature !== null) {
-          windowTemperatures.push(withCumulative[i].temperature);
+        const temp = withCumulative[i].temperature;
+        if (temp !== null) {
+          windowTemperatures.push(temp);
         }
       }
     }
