@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, type ReactNode }
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, type Trip } from '../db';
 import { parse, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
+import { calculateLinearRegression } from '../utils/math';
 
 interface FilterState {
   dateRange: { start: string; end: string } | null;
@@ -10,6 +11,7 @@ interface FilterState {
   efficiencyRange: { min: number | ''; max: number | '' }; // Stored in mi/kWh
   searchText: string;
   excludedTags: string[];
+  excludeOutliers: boolean; // Exclude trips > 3 SD from efficiency vs temp regression
 }
 
 interface FilterContextType {
@@ -32,6 +34,7 @@ const defaultFilters: FilterState = {
   efficiencyRange: { min: '', max: '' },
   searchText: '',
   excludedTags: [],
+  excludeOutliers: false,
 };
 
 const FilterContext = createContext<FilterContextType | undefined>(undefined);
@@ -64,6 +67,40 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     if (!allTrips) return;
 
     const searchLower = filters.searchText.toLowerCase().trim();
+
+    // Pre-calculate regression and outlier detection if needed
+    let outlierThreshold: number | null = null;
+    let regressionParams: { m: number; b: number } | null = null;
+    
+    if (filters.excludeOutliers) {
+      // Get all trips with valid temperature and distance for regression calculation
+      const validTrips = allTrips.filter(t => t.temperature !== null && t.distance > 0);
+      
+      if (validTrips.length >= 2) {
+        // Calculate regression: efficiency vs temperature
+        const regressionData = validTrips.map(t => ({ 
+          x: t.temperature!, 
+          y: t.efficiency 
+        }));
+        regressionParams = calculateLinearRegression(regressionData);
+        
+        if (regressionParams) {
+          // Calculate residuals (actual - predicted)
+          const residuals = validTrips.map(t => {
+            const predicted = regressionParams!.m * t.temperature! + regressionParams!.b;
+            return t.efficiency - predicted;
+          });
+          
+          // Calculate standard deviation of residuals
+          const meanResidual = residuals.reduce((sum, r) => sum + r, 0) / residuals.length;
+          const variance = residuals.reduce((sum, r) => sum + Math.pow(r - meanResidual, 2), 0) / residuals.length;
+          const stdDev = Math.sqrt(variance);
+          
+          // 3 standard deviations threshold
+          outlierThreshold = 3 * stdDev;
+        }
+      }
+    }
 
     const results = allTrips.filter((trip) => {
       // 1. Date Filter
@@ -104,6 +141,16 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           filters.excludedTags.includes(tag.toLowerCase())
         );
         if (hasExcludedTag) return false;
+      }
+
+      // 7. Exclude Outliers - Filter out trips > 3 SD from regression line
+      if (filters.excludeOutliers && outlierThreshold !== null && regressionParams !== null) {
+        // Only check trips with valid temperature data
+        if (trip.temperature !== null) {
+          const predicted = regressionParams.m * trip.temperature + regressionParams.b;
+          const residual = trip.efficiency - predicted;
+          if (Math.abs(residual) > outlierThreshold) return false;
+        }
       }
 
       return true;
