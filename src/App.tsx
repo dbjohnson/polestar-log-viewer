@@ -5,8 +5,9 @@ import { Charts } from './components/Charts';
 import { TripTable } from './components/TripTable';
 import { FilterBar } from './components/FilterBar';
 import { SettingsModal } from './components/SettingsModal';
+import { RouteMapModal } from './components/RouteMapModal';
 import { SettingsProvider, useSettings } from './contexts/SettingsContext';
-import { FilterProvider } from './contexts/FilterContext';
+import { FilterProvider, useFilter } from './contexts/FilterContext';
 import { processMissingTemperatures } from './utils/weatherWorker';
 import { db } from './db';
 import { Github, Settings, Moon, Sun, Monitor } from 'lucide-react';
@@ -14,6 +15,7 @@ import { Github, Settings, Moon, Sun, Monitor } from 'lucide-react';
 function AppContent() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const { theme, resolvedTheme, updateSettings } = useSettings();
+  const { selectedTrip, setSelectedTrip, saveTripDetails } = useFilter();
 
   // Attempt to fetch any missing temperatures on initial load
   useEffect(() => {
@@ -108,6 +110,17 @@ function AppContent() {
         isOpen={isSettingsOpen} 
         onClose={() => setIsSettingsOpen(false)} 
         onClearTemperatureCache={handleClearTemperatureCache}
+      />
+
+      <RouteMapModal 
+        trip={selectedTrip}
+        isOpen={!!selectedTrip}
+        onClose={() => setSelectedTrip(null)}
+        onSave={(notes: string, tags: string[]) => {
+          if (selectedTrip) {
+            saveTripDetails(selectedTrip.startDate, notes, tags);
+          }
+        }}
       />
     </div>
   );

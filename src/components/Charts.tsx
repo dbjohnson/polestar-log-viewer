@@ -15,7 +15,7 @@ import {
 
 export const Charts= () => {
   const { unitSystem, resolvedTheme } = useSettings();
-  const { statsTrips } = useFilter();
+  const { statsTrips, setSelectedTrip } = useFilter();
   const [movingAverageWindow, setMovingAverageWindow] = useState<20 | 50 | 100>(50);
 
   if (!statsTrips || statsTrips.length === 0) {
@@ -35,7 +35,8 @@ export const Charts= () => {
     date: parse(t.startDate, 'yyyy-MM-dd, HH:mm', new Date()).toLocaleDateString(),
     efficiency: parseFloat(formatEfficiency(t.efficiency, isMetric).toFixed(2)),
     distance: formatDistance(t.distance, isMetric),
-    temperature: t.temperature !== null ? parseFloat(formatTemp(t.temperature, isMetric)!.toFixed(1)) : null
+    temperature: t.temperature !== null ? parseFloat(formatTemp(t.temperature, isMetric)!.toFixed(1)) : null,
+    startDate: t.startDate
   })).filter(d => d.distance > 0);
 
   // Calculate moving average for efficiency and temperature over time
@@ -46,7 +47,8 @@ export const Charts= () => {
   let tempChartData = tempValidTrips.map(t => ({
     temperature: parseFloat(formatTemp(t.temperature, isMetric)!.toFixed(1)),
     efficiency: parseFloat(formatEfficiency(t.efficiency, isMetric).toFixed(2)),
-    distance: formatDistance(t.distance, isMetric)
+    distance: formatDistance(t.distance, isMetric),
+    startDate: t.startDate
   })).sort((a, b) => a.temperature - b.temperature);
 
   if (tempChartData.length > 1) {
@@ -61,6 +63,16 @@ export const Charts= () => {
   }
 
   const effLabelText = getEfficiencyLabel(isMetric);
+
+  // Handle click on a scatter point to open trip details
+  const handleScatterClick = (data: any) => {
+    if (data && data.payload && data.payload.startDate) {
+      const trip = sortedTrips.find(t => t.startDate === data.payload.startDate);
+      if (trip) {
+        setSelectedTrip(trip);
+      }
+    }
+  };
 
   const gridColor = isDark ? '#334155' : '#eee';
   const textColor = isDark ? '#94a3b8' : '#666';
@@ -119,7 +131,7 @@ export const Charts= () => {
               <ZAxis type="number" dataKey="distance" range={[30, 30]} name={`Distance`} unit={` ${getDistanceLabel(isMetric)}`} />
               <Tooltip cursor={{ strokeDasharray: '3 3', stroke: gridColor }} contentStyle={tooltipStyle} />
               <Legend wrapperStyle={{ paddingTop: '10px' }} />
-              <Scatter name="Trips" dataKey="efficiency" fill="#ef4444" opacity={0.5} />
+              <Scatter name="Trips" dataKey="efficiency" fill="#ef4444" opacity={0.5} onClick={handleScatterClick} cursor="pointer" />
               <Line 
                 type="monotone" 
                 yAxisId="right"
@@ -173,7 +185,7 @@ export const Charts= () => {
                 <ZAxis type="number" dataKey="distance" range={[30, 30]} name={`Distance`} unit={` ${getDistanceLabel(isMetric)}`} />
                 <Tooltip cursor={{ strokeDasharray: '3 3', stroke: gridColor }} contentStyle={tooltipStyle} />
                 <Legend wrapperStyle={{ paddingTop: '10px' }} />
-                <Scatter name="Trips" dataKey="efficiency" fill="#ef4444" opacity={0.6} />
+                <Scatter name="Trips" dataKey="efficiency" fill="#ef4444" opacity={0.6} onClick={handleScatterClick} cursor="pointer" />
                 <Line dataKey="trendline" name="Trend" stroke="#3b82f6" strokeWidth={2} dot={false} activeDot={false} />
               </ComposedChart>
             </ResponsiveContainer>

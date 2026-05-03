@@ -1,9 +1,6 @@
-import { useState } from 'react';
 import { format, parse } from 'date-fns';
 import { useSettings } from '../contexts/SettingsContext';
 import { useFilter } from '../contexts/FilterContext';
-import { RouteMapModal } from './RouteMapModal';
-import type { Trip } from '../db';
 import { 
   formatDistance, getDistanceLabel, 
   formatEfficiency, getEfficiencyLabel,
@@ -16,8 +13,7 @@ import Papa from 'papaparse';
 
 export const TripTable= () => {
   const { unitSystem } = useSettings();
-  const { viewableTrips, saveTripDetails } = useFilter();
-  const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
+  const { viewableTrips, setSelectedTrip } = useFilter();
 
   if (!viewableTrips || viewableTrips.length === 0) {
     return null;
@@ -170,16 +166,6 @@ export const TripTable= () => {
         </div>
       </div>
 
-      <RouteMapModal 
-        trip={selectedTrip}
-        isOpen={!!selectedTrip}
-        onClose={() => setSelectedTrip(null)}
-        onSave={(notes: string, tags: string[]) => {
-          if (selectedTrip) {
-            saveTripDetails(selectedTrip.startDate, notes, tags);
-          }
-        }}
-      />
     </>
   );
 };

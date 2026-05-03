@@ -25,6 +25,8 @@ interface FilterContextType {
   setFilters: React.Dispatch<React.SetStateAction<FilterState>>;
   resetFilters: () => void;
   saveTripDetails: (startDate: string, notes: string, tags: string[]) => Promise<void>;
+  selectedTrip: Trip | null;
+  setSelectedTrip: (trip: Trip | null) => void;
 }
 
 const defaultFilters: FilterState = {
@@ -57,6 +59,7 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   
   const [viewableTrips, setViewableTrips] = useState<Trip[]>([]);
   const [statsTrips, setStatsTrips] = useState<Trip[]>([]);
+  const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
 
   // Save filters to localStorage whenever they change
   useEffect(() => {
@@ -179,7 +182,9 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       filters, 
       setFilters, 
       resetFilters,
-      saveTripDetails
+      saveTripDetails,
+      selectedTrip,
+      setSelectedTrip
     }}>
       {children}
     </FilterContext.Provider>
