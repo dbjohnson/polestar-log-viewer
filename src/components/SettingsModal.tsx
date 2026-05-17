@@ -111,7 +111,7 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, onClearTempera
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-md shadow-xl overflow-hidden transition-colors duration-200">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-md shadow-xl overflow-hidden transition-colors duration-200 flex flex-col max-h-[85vh]">
         <div className="px-6 py-4 border-b border-gray-100 dark:border-slate-800 flex justify-between items-center">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white">Dashboard Settings</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
@@ -119,7 +119,7 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, onClose, onClearTempera
           </button>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6 overflow-y-auto min-h-0">
           {/* Unit Toggle */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 dark:text-slate-300 mb-2">Unit System</label>
