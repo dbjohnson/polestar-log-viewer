@@ -19,7 +19,7 @@ export interface Trip {
   socDestination: number;
   temperature: number | null; // Fetched later
   
-  // User annotations - persist across CSV re-uploads
+  // User annotations - persist across file re-uploads
   excluded?: boolean;
   notes?: string;
   tags?: string[];

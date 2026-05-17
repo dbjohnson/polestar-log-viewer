@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { UploadCloud } from 'lucide-react';
 import { processCSVFile } from '../utils/parseCSV';
+import { processExcelFile } from '../utils/parseExcel';
 import { processMissingTemperatures, type TemperatureProgressCallback } from '../utils/weatherWorker';
 import { importAllData, checkLocalDatabaseEmpty } from '../utils/importData';
 import { useSettings } from '../contexts/SettingsContext';
@@ -14,27 +15,27 @@ export const Dropzone = () => {
   const [pendingImportFile, setPendingImportFile] = useState<File | null>(null);
   const { updateSettings, unitSystem } = useSettings();
 
-  const handleCSVImport = async (file: File) => {
-    setMessage('Processing CSV...');
-    
-    const result = await processCSVFile(file);
-    
+  const handleDataImport = async (file: File, processor: (file: File) => Promise<{ count: number, detectedUnit: 'metric' | 'imperial' }>) => {
+    setMessage('Processing file...');
+
+    const result = await processor(file);
+
     setMessage(`Successfully imported ${result.count} trips!`);
-    
-    // Auto-switch UI to match the CSV's native unit system
+
+    // Auto-switch UI to match the file's native unit system
     if (result.detectedUnit !== unitSystem) {
       updateSettings({ unitSystem: result.detectedUnit });
     }
-    
+
     // Kick off background weather sync with progress
     setMessage('Fetching temperature data...');
-    
+
     const progressCallback: TemperatureProgressCallback = (completed, failed, total) => {
       setTempProgress({ completed, failed, total });
     };
-    
+
     const tempResult = await processMissingTemperatures(progressCallback);
-    
+
     setMessage(`Complete! ${tempResult.completed}/${tempResult.total} trips updated with temperature data.`);
   };
 
@@ -79,7 +80,9 @@ export const Dropzone = () => {
     try {
       for (const file of acceptedFiles) {
         if (file.name.endsWith('.csv')) {
-          await handleCSVImport(file);
+          await handleDataImport(file, processCSVFile);
+        } else if (file.name.endsWith('.xlsx')) {
+          await handleDataImport(file, processExcelFile);
         } else if (file.name.endsWith('.json')) {
           await handleJSONImport(file);
         } else {
@@ -123,6 +126,7 @@ export const Dropzone = () => {
     onDrop,
     accept: {
       'text/csv': ['.csv'],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
       'application/json': ['.json']
     }
   });
@@ -142,9 +146,9 @@ export const Dropzone = () => {
         {
           isDragActive ?
             <p className="text-lg font-medium">Drop files here ...</p> :
-            <p className="text-lg font-medium">Drag & drop Polestar files (.csv or .json) here, or click to select</p>
+            <p className="text-lg font-medium">Drag & drop Polestar files (.csv, .xlsx, or .json) here, or click to select</p>
         }
-        <p className="text-sm text-gray-400 dark:text-slate-500 mt-2">Accepts CSV journey logs or JSON backup files</p>
+        <p className="text-sm text-gray-400 dark:text-slate-500 mt-2">Accepts CSV / Excel journey logs or JSON backup files</p>
         <p className="text-xs text-gray-400 dark:text-slate-500 mt-1">Your data stays on your device. All processing is done locally.</p>
       </div>
       

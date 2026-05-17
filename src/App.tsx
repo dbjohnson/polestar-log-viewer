@@ -89,7 +89,7 @@ function AppContent() {
           <div className="max-w-3xl mx-auto text-center mb-6">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Analyze Your EV Data</h2>
             <p className="text-gray-500 dark:text-slate-400">
-              Drag and drop your exported Polestar journey log (CSV) below to visualize your driving efficiency, 
+              Drag and drop your exported Polestar journey log (CSV or Excel) below to visualize your driving efficiency,
               energy consumption, and temperature impacts.
             </p>
           </div>
