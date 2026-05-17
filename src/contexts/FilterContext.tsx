@@ -11,7 +11,7 @@ interface FilterState {
   efficiencyRange: { min: number | ''; max: number | '' }; // Stored in mi/kWh
   searchText: string;
   excludedTags: string[];
-  excludeOutliers: boolean; // Exclude trips > 3 SD from efficiency vs temp regression
+  outlierSigma: 0 | 1 | 2 | 3; // 0 = off, otherwise exclude trips > N SD from regression
 }
 
 interface FilterContextType {
@@ -36,7 +36,7 @@ const defaultFilters: FilterState = {
   efficiencyRange: { min: '', max: '' },
   searchText: '',
   excludedTags: [],
-  excludeOutliers: false,
+  outlierSigma: 0,
 };
 
 const FilterContext = createContext<FilterContextType | undefined>(undefined);
@@ -49,7 +49,13 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     const saved = localStorage.getItem('polestar-filters');
     if (saved) {
       try {
-        return { ...defaultFilters, ...JSON.parse(saved) };
+        const parsed = JSON.parse(saved);
+        // Migrate legacy boolean excludeOutliers to outlierSigma
+        if ('excludeOutliers' in parsed && !('outlierSigma' in parsed)) {
+          parsed.outlierSigma = parsed.excludeOutliers ? 3 : 0;
+          delete parsed.excludeOutliers;
+        }
+        return { ...defaultFilters, ...parsed };
       } catch (e) {
         console.error('Failed to parse filters from localStorage', e);
       }
@@ -74,33 +80,32 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     // Pre-calculate regression and outlier detection if needed
     let outlierThreshold: number | null = null;
     let regressionParams: { m: number; b: number } | null = null;
-    
-    if (filters.excludeOutliers) {
+
+    if (filters.outlierSigma > 0) {
       // Get all trips with valid temperature and distance for regression calculation
       const validTrips = allTrips.filter(t => t.temperature !== null && t.distance > 0);
-      
+
       if (validTrips.length >= 2) {
         // Calculate regression: efficiency vs temperature
-        const regressionData = validTrips.map(t => ({ 
-          x: t.temperature!, 
-          y: t.efficiency 
+        const regressionData = validTrips.map(t => ({
+          x: t.temperature!,
+          y: t.efficiency
         }));
         regressionParams = calculateLinearRegression(regressionData);
-        
+
         if (regressionParams) {
           // Calculate residuals (actual - predicted)
           const residuals = validTrips.map(t => {
             const predicted = regressionParams!.m * t.temperature! + regressionParams!.b;
             return t.efficiency - predicted;
           });
-          
+
           // Calculate standard deviation of residuals
           const meanResidual = residuals.reduce((sum, r) => sum + r, 0) / residuals.length;
           const variance = residuals.reduce((sum, r) => sum + Math.pow(r - meanResidual, 2), 0) / residuals.length;
           const stdDev = Math.sqrt(variance);
-          
-          // 3 standard deviations threshold
-          outlierThreshold = 3 * stdDev;
+
+          outlierThreshold = filters.outlierSigma * stdDev;
         }
       }
     }
@@ -146,8 +151,8 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         if (hasExcludedTag) return false;
       }
 
-      // 7. Exclude Outliers - Filter out trips > 3 SD from regression line
-      if (filters.excludeOutliers && outlierThreshold !== null && regressionParams !== null) {
+      // 7. Exclude Outliers - Filter out trips > N SD from regression line
+      if (filters.outlierSigma > 0 && outlierThreshold !== null && regressionParams !== null) {
         // Only check trips with valid temperature data
         if (trip.temperature !== null) {
           const predicted = regressionParams.m * trip.temperature + regressionParams.b;

@@ -290,33 +290,28 @@ export const FilterBar: React.FC = () => {
             </div>
           </div>
 
-          {/* Exclude Outliers Toggle */}
+          {/* Outlier Sigma Selector */}
           <div className="space-y-2">
             <label className="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Outliers</label>
             <div className="flex bg-gray-100 dark:bg-slate-800 rounded-lg p-1">
-              <button
-                className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${
-                  filters.excludeOutliers
-                    ? 'bg-white dark:bg-slate-600 shadow-sm text-red-600 dark:text-red-400'
-                    : 'text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200'
-                }`}
-                onClick={() => setFilters(prev => ({ ...prev, excludeOutliers: true }))}
-              >
-                Exclude
-              </button>
-              <button
-                className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${
-                  !filters.excludeOutliers
-                    ? 'bg-white dark:bg-slate-600 shadow-sm text-gray-900 dark:text-white'
-                    : 'text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200'
-                }`}
-                onClick={() => setFilters(prev => ({ ...prev, excludeOutliers: false }))}
-              >
-                Include
-              </button>
+              {[0, 1, 2, 3].map((sigma) => (
+                <button
+                  key={sigma}
+                  className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${
+                    filters.outlierSigma === sigma
+                      ? 'bg-white dark:bg-slate-600 shadow-sm text-gray-900 dark:text-white'
+                      : 'text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200'
+                  }`}
+                  onClick={() => setFilters(prev => ({ ...prev, outlierSigma: sigma as 0 | 1 | 2 | 3 }))}
+                >
+                  {sigma === 0 ? 'Off' : `${sigma}σ`}
+                </button>
+              ))}
             </div>
             <p className="text-xs text-gray-400 dark:text-slate-500">
-              Hides trips {'>'} 3 SD from efficiency vs temp trend
+              {filters.outlierSigma === 0
+                ? 'No outlier filtering'
+                : `Hides trips > ${filters.outlierSigma} SD from efficiency vs temp trend`}
             </p>
           </div>
 
