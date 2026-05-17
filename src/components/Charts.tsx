@@ -1,5 +1,5 @@
-import { parse } from 'date-fns';
-import { useState } from 'react';
+import { format, parse } from 'date-fns';
+import { useState, useEffect } from 'react';
 import {
   Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   Scatter, ZAxis, ComposedChart
@@ -13,10 +13,90 @@ import {
   formatTemp, getTempLabel,
 } from '../utils/units';
 
+const TimeTooltip = ({ active, payload, isDark, effLabelText }: any) => {
+  if (!active || !payload || !payload.length) return null;
+
+  const data = payload[0]?.payload;
+  const rawDate = data?.startDate;
+  const parsedDate = rawDate ? parse(rawDate, 'yyyy-MM-dd, HH:mm', new Date()) : null;
+
+  const bg = isDark ? '#1e293b' : '#fff';
+  const border = isDark ? '#334155' : '#eee';
+  const text = isDark ? '#f8fafc' : '#111827';
+
+  return (
+    <div style={{ backgroundColor: bg, border: `1px solid ${border}`, color: text, borderRadius: '8px', padding: '8px 12px', fontSize: '12px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}>
+      {parsedDate && (
+        <p style={{ margin: '0 0 4px 0', paddingBottom: 4, borderBottom: `1px solid ${border}`, fontWeight: 600 }}>
+          {format(parsedDate, 'MMM d, yyyy h:mm a')}
+        </p>
+      )}
+      <ul style={{ listStyle: 'none', padding: 0, margin: '4px 0 0 0' }}>
+        {payload
+          .filter((entry: any) => entry.dataKey !== 'date' && entry.name !== 'date')
+          .map((entry: any, index: number) => {
+            const displayName = entry.dataKey === 'efficiency' ? `Efficiency (${effLabelText})` : entry.name;
+            return (
+              <li key={index} style={{ color: entry.color || text }}>
+                {displayName}: {entry.value}
+              </li>
+            );
+          })}
+      </ul>
+    </div>
+  );
+};
+
+const ScatterTooltip = ({ active, payload, regressionStats, isDark }: any) => {
+  if (!active || !payload || !payload.length) return null;
+
+  const data = payload[0]?.payload;
+  const rawDate = data?.startDate;
+  const parsedDate = rawDate ? parse(rawDate, 'yyyy-MM-dd, HH:mm', new Date()) : null;
+
+  const bg = isDark ? '#1e293b' : '#fff';
+  const border = isDark ? '#334155' : '#eee';
+  const text = isDark ? '#f8fafc' : '#111827';
+
+  return (
+    <div style={{ backgroundColor: bg, border: `1px solid ${border}`, color: text, borderRadius: '8px', padding: '8px 12px', fontSize: '12px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}>
+      {parsedDate && (
+        <p style={{ margin: '0 0 4px 0', paddingBottom: 4, borderBottom: `1px solid ${border}`, fontWeight: 600 }}>
+          {format(parsedDate, 'MMM d, yyyy h:mm a')}
+        </p>
+      )}
+      <ul style={{ listStyle: 'none', padding: 0, margin: '4px 0 0 0' }}>
+        {payload.map((entry: any, index: number) => (
+          <li key={index} style={{ color: entry.color || text }}>
+            {entry.name}: {entry.value}
+          </li>
+        ))}
+      </ul>
+      {regressionStats && (
+        <div style={{ marginTop: 8, paddingTop: 4, borderTop: `1px solid ${border}`, fontSize: '11px', fontFamily: 'monospace' }}>
+          <div>y = {regressionStats.m.toFixed(2)}x + {regressionStats.b.toFixed(2)}</div>
+          <div>R² = {regressionStats.r2.toFixed(3)}</div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const Charts= () => {
   const { unitSystem, resolvedTheme } = useSettings();
   const { statsTrips, setSelectedTrip } = useFilter();
-  const [movingAverageWindow, setMovingAverageWindow] = useState<20 | 50 | 100>(50);
+  const [movingAverageWindow, setMovingAverageWindow] = useState<20 | 50 | 100>(() => {
+    const saved = localStorage.getItem('polestar-avg-window');
+    if (saved) {
+      const parsed = parseInt(saved, 10);
+      if ([20, 50, 100].includes(parsed)) return parsed as 20 | 50 | 100;
+    }
+    return 50;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('polestar-avg-window', String(movingAverageWindow));
+  }, [movingAverageWindow]);
 
   if (!statsTrips || statsTrips.length === 0) {
     return null;
@@ -51,10 +131,12 @@ export const Charts= () => {
     startDate: t.startDate
   })).sort((a, b) => a.temperature - b.temperature);
 
+  let regressionStats: { m: number; b: number; r2: number } | null = null;
   if (tempChartData.length > 1) {
     const regressionInput = tempChartData.map(d => ({ x: d.temperature, y: d.efficiency }));
     const regression = calculateLinearRegression(regressionInput);
     if (regression) {
+      regressionStats = regression;
       tempChartData = tempChartData.map(d => ({
         ...d,
         trendline: parseFloat((regression.m * d.temperature + regression.b).toFixed(2))
@@ -76,14 +158,6 @@ export const Charts= () => {
 
   const gridColor = isDark ? '#334155' : '#eee';
   const textColor = isDark ? '#94a3b8' : '#666';
-  const tooltipStyle = {
-    backgroundColor: isDark ? '#1e293b' : '#fff',
-    borderColor: isDark ? '#334155' : '#eee',
-    color: isDark ? '#f8fafc' : '#111827',
-    borderRadius: '8px',
-    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
-  };
-
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
       
@@ -129,7 +203,7 @@ export const Charts= () => {
                 label={{ value: getTempLabel(isMetric), angle: 90, position: 'insideRight', style: { textAnchor: 'middle', fontSize: 13, fill: textColor } }} 
               />
               <ZAxis type="number" dataKey="distance" range={[30, 30]} name={`Distance`} unit={` ${getDistanceLabel(isMetric)}`} />
-              <Tooltip cursor={{ strokeDasharray: '3 3', stroke: gridColor }} contentStyle={tooltipStyle} />
+              <Tooltip cursor={{ strokeDasharray: '3 3', stroke: gridColor }} content={<TimeTooltip isDark={isDark} effLabelText={effLabelText} />} />
               <Legend wrapperStyle={{ paddingTop: '10px' }} />
               <Scatter name="Trips" dataKey="efficiency" fill="#ef4444" opacity={0.5} onClick={handleScatterClick} cursor="pointer" />
               <Line 
@@ -159,9 +233,10 @@ export const Charts= () => {
       {/* Scatter Chart (Efficiency vs Temp) */}
       <div className="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 transition-colors duration-200">
         <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-6">Efficiency vs. Temp</h3>
-        <div className="h-72 w-full min-h-[288px]">
+        <div className="h-72 w-full min-h-[288px] relative">
           {tempValidTrips.length > 0 ? (
-            <ResponsiveContainer width="100%" height="100%" minHeight={288}>
+            <>
+              <ResponsiveContainer width="100%" height="100%" minHeight={288}>
               <ComposedChart data={tempChartData} margin={{ top: 5, right: 20, bottom: 20, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridColor} />
                 <XAxis 
@@ -183,12 +258,13 @@ export const Charts= () => {
                   label={{ value: effLabelText, angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontSize: 13, fill: textColor } }}
                 />
                 <ZAxis type="number" dataKey="distance" range={[30, 30]} name={`Distance`} unit={` ${getDistanceLabel(isMetric)}`} />
-                <Tooltip cursor={{ strokeDasharray: '3 3', stroke: gridColor }} contentStyle={tooltipStyle} />
+                <Tooltip cursor={{ strokeDasharray: '3 3', stroke: gridColor }} content={<ScatterTooltip regressionStats={regressionStats} isDark={isDark} />} />
                 <Legend wrapperStyle={{ paddingTop: '10px' }} />
                 <Scatter name="Trips" dataKey="efficiency" fill="#ef4444" opacity={0.6} onClick={handleScatterClick} cursor="pointer" />
                 <Line dataKey="trendline" name="Trend" stroke="#3b82f6" strokeWidth={2} dot={false} activeDot={false} />
               </ComposedChart>
             </ResponsiveContainer>
+            </>
           ) : (
             <div className="w-full h-full flex items-center justify-center text-gray-400 dark:text-slate-500">
               <p>Fetching weather data...</p>

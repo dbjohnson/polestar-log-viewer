@@ -15,3 +15,8 @@
 html.dark {
   background-color: #0f172a; /* bg-slate-950 */
 }
+
+/* Hide redundant Recharts tooltip label line */
+.recharts-tooltip-label {
+  display: none;
+}

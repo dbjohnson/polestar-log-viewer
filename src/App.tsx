@@ -15,7 +15,7 @@ import { Github, Settings, Moon, Sun, Monitor } from 'lucide-react';
 function AppContent() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const { theme, resolvedTheme, updateSettings } = useSettings();
-  const { selectedTrip, setSelectedTrip, saveTripDetails } = useFilter();
+  const { selectedTrip, setSelectedTrip, saveTripDetails, viewableTrips } = useFilter();
 
   // Attempt to fetch any missing temperatures on initial load
   useEffect(() => {
@@ -101,7 +101,7 @@ function AppContent() {
           <FilterBar />
           <DashboardCards />
           <Charts />
-          <TripTable />
+          <TripTable key={viewableTrips.length} />
         </section>
 
       </main>

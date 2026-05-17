@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { format, parse } from 'date-fns';
 import { useSettings } from '../contexts/SettingsContext';
 import { useFilter } from '../contexts/FilterContext';
@@ -14,6 +15,8 @@ import Papa from 'papaparse';
 export const TripTable= () => {
   const { unitSystem } = useSettings();
   const { viewableTrips, setSelectedTrip } = useFilter();
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 20;
 
   if (!viewableTrips || viewableTrips.length === 0) {
     return null;
@@ -62,6 +65,10 @@ export const TripTable= () => {
     return new Date(b.startDate).getTime() - new Date(a.startDate).getTime();
   });
 
+  const totalPages = Math.ceil(sortedTrips.length / PAGE_SIZE);
+  const startIndex = (currentPage - 1) * PAGE_SIZE;
+  const paginatedTrips = sortedTrips.slice(startIndex, startIndex + PAGE_SIZE);
+
   return (
     <>
       <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 overflow-hidden mb-8 transition-colors duration-200">
@@ -94,7 +101,7 @@ export const TripTable= () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-slate-800 text-gray-700 dark:text-slate-300">
-              {sortedTrips.map((trip) => {
+              {paginatedTrips.map((trip) => {
                 const parsedDate = parse(trip.startDate, 'yyyy-MM-dd, HH:mm', new Date());
                 const parsedEndDate = parse(trip.endDate, 'yyyy-MM-dd, HH:mm', new Date());
                 
@@ -164,6 +171,44 @@ export const TripTable= () => {
             </tbody>
           </table>
         </div>
+        {totalPages > 1 && (
+          <div className="px-6 py-4 border-t border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-900/50 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <span className="text-sm text-gray-500 dark:text-slate-400">
+              Showing {startIndex + 1} - {Math.min(startIndex + PAGE_SIZE, sortedTrips.length)} of {sortedTrips.length} trips
+            </span>
+            <div className="flex items-center space-x-1">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 text-sm rounded-md border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Previous
+              </button>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                <button
+                  key={page}
+                  onClick={() => setCurrentPage(page)}
+                  className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
+                    page === currentPage
+                      ? 'bg-blue-600 text-white border-blue-600 dark:bg-blue-500 dark:border-blue-500'
+                      : 'border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  {page}
+                </button>
+              ))}
+
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 text-sm rounded-md border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
     </>

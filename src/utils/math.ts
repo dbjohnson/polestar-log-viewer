@@ -1,4 +1,4 @@
-export function calculateLinearRegression(data: { x: number; y: number }[]): { m: number; b: number } | null {
+export function calculateLinearRegression(data: { x: number; y: number }[]): { m: number; b: number; r2: number } | null {
   if (data.length < 2) return null;
 
   const n = data.length;
@@ -20,7 +20,18 @@ export function calculateLinearRegression(data: { x: number; y: number }[]): { m
   const m = (n * sumXY - sumX * sumY) / denominator;
   const b = (sumY - m * sumX) / n;
 
-  return { m, b };
+  // Calculate R-squared
+  const meanY = sumY / n;
+  let ssTotal = 0;
+  let ssResidual = 0;
+  for (let i = 0; i < n; i++) {
+    const predicted = m * data[i].x + b;
+    ssResidual += Math.pow(data[i].y - predicted, 2);
+    ssTotal += Math.pow(data[i].y - meanY, 2);
+  }
+  const r2 = ssTotal === 0 ? 1 : 1 - ssResidual / ssTotal;
+
+  return { m, b, r2 };
 }
 
 export function generateTrendline(
